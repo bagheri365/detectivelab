@@ -7,11 +7,13 @@ Evidence before complexity is the project rule: freeze the benchmark, add one ca
 ## At a Glance
 
 - **Research question:** when multimodal evidence conflicts, should an AI reason from raw perception, structured observations, or both?
-- **Current milestone:** `v0.0.1-benchmark-fix` is **VALIDATED**; rerun the QUESTION baseline before RAW.
-- **Current benchmark:** 10 deterministic scenes, 30 total items, and three case families: spatial, state, and conflict.
-- **Preserved history:** `v0.0` remains frozen for provenance but its conflict family is invalidated for QUESTION-only shortcut leakage.
+- **Current milestone:** `v0.2-extracted-structure` is **COMPLETE**.
+- **Current benchmark:** `v0.0.1`, with 10 deterministic scenes, 30 total items, and three case families: spatial, state, and conflict.
+- **Best current result:** `EXTRACTED_FOCUSED` matches `ORACLE_STRUCTURED` at **86.7% overall**.
+- **Key finding:** task-relevant image-derived structure can match oracle performance, while dense correct structure can materially degrade reasoning.
+- **Remaining bottleneck:** conflict arbitration remains at **60%** even when focused extracted evidence matches the oracle representation.
 - **Compute constraint:** the reference benchmark and evaluation workflow must remain runnable on a consumer Mac CPU without required model training.
-- **Next experiment:** rerun the `v0.1-direct` QUESTION-only baseline on `v0.0.1`; run RAW only if the conflict shortcut is gone.
+- **Next experiment:** isolate why conflict reasoning remains below the state/spatial ceiling before adding routing or hybrid evidence.
 - **Project charter:** see [`DETECTIVELAB_PROJECT.md`](./DETECTIVELAB_PROJECT.md).
 
 ## Why This Project Exists
@@ -34,9 +36,76 @@ The system is designed to separate three things that are often conflated:
 - the quality of reasoning over explicit evidence
 - the quality of evidence arbitration when sources disagree
 
-The long-term hypothesis is that different case requirements may favor different evidence paths, but routing will only be introduced if earlier controlled experiments demonstrate a stable advantage over an always-hybrid baseline.
+The long-term hypothesis is that different case requirements may favor different evidence paths, but routing will only be introduced if earlier controlled experiments demonstrate a stable advantage over a simpler fixed path.
 
 ## Current Findings
+
+The current controlled comparison uses the same `v0.0.1` benchmark and `gemma3:4b` model across five evidence conditions:
+
+| Condition | Overall | Conflict | Spatial | State |
+| --- | ---: | ---: | ---: | ---: |
+| QUESTION | 50.0% | 30.0% | 70.0% | 50.0% |
+| RAW | 53.3% | 30.0% | 50.0% | 80.0% |
+| EXTRACTED_STRUCTURED | 70.0% | 60.0% | 50.0% | 100.0% |
+| EXTRACTED_FOCUSED | **86.7%** | **60.0%** | **100.0%** | **100.0%** |
+| ORACLE_STRUCTURED | **86.7%** | **60.0%** | **100.0%** | **100.0%** |
+
+The strongest current result is:
+
+> **Focused image-derived structure matched oracle performance, while dense correct structure degraded reasoning.**
+
+This means the important distinction is not only raw pixels versus symbolic structure. Representation density also matters.
+
+### State
+
+State accuracy progresses:
+
+`50% QUESTION -> 80% RAW -> 100% EXTRACTED -> 100% ORACLE`
+
+The model can reason correctly over state facts once those facts are represented explicitly. The remaining RAW gap is therefore primarily perceptual on this benchmark.
+
+### Spatial
+
+Spatial accuracy progresses:
+
+`70% QUESTION -> 50% RAW -> 50% DENSE EXTRACTED -> 100% FOCUSED EXTRACTED -> 100% ORACLE`
+
+A direct audit showed that the image-only extractor was recovering the relevant left/right relation correctly. The failure came from exposing all pairwise relations among detected objects.
+
+With six objects, the dense condition emitted 15 pairwise spatial statements. The relevant relation was present, but surrounded by irrelevant correct structure. The model then developed a strong `yes` bias.
+
+When the evidence was reduced to the queried entities and their relevant relation, spatial accuracy rose to 100%.
+
+This supports the working principle:
+
+> **More correct structure is not necessarily better structure.**
+
+### Conflict
+
+Conflict accuracy progresses:
+
+`30% QUESTION -> 30% RAW -> 60% EXTRACTED -> 60% FOCUSED -> 60% ORACLE`
+
+The structured conditions close the measurable perception gap, but performance still stops at 60%.
+
+That means the remaining conflict failures are downstream of perception and grounding.
+
+Earlier probes identified several RAW failure modes:
+
+- object-grounding errors
+- hallucinated grounding for absent objects
+- visual-state perception errors
+- inconsistent evidence comparison
+- unstable verdict mapping
+
+Focused extraction removes the upstream visual ambiguity, but the evidence-arbitration problem remains.
+
+See:
+
+- [`docs/results/v0_1_direct.md`](./docs/results/v0_1_direct.md)
+- [`docs/results/v0_2_extracted_structure.md`](./docs/results/v0_2_extracted_structure.md)
+
+## Benchmark History
 
 The first real QUESTION-only run exposed a benchmark bug before any RAW-image claim was made. On preserved `v0.0`, Qwen3 4B scored:
 
@@ -62,41 +131,6 @@ The conflict family was therefore **invalidated for shortcut leakage**: its verd
 
 See [`artifacts/benchmark_v0_0_1/BENCHMARK_FIX.md`](./artifacts/benchmark_v0_0_1/BENCHMARK_FIX.md) for the correction record.
 
-
-# v0.1 Ollama adapter
-
-Copy `src/` and `tests/` into the repository root, preserving paths.
-
-No new Python dependency is required. The adapter uses Python's standard-library HTTP client and expects a local Ollama server on `http://localhost:11434`.
-
-Run tests:
-
-```bash
-python -m pytest
-```
-
-Run the first real QUESTION baseline:
-
-```bash
-python -m detectivelab.cli.evaluate \
-  --benchmark artifacts/benchmark_v0_0_1 \
-  --condition QUESTION \
-  --adapter ollama \
-  --model qwen3:4b-instruct-2507-q4_K_M \
-  --output artifacts/evaluation/v0_1_question_qwen3_4b.jsonl
-```
-
-Defaults are frozen for this first pass:
-
-- temperature: `0.0`
-- output budget: `8` tokens
-- seed: `0`
-- Ollama URL: `http://localhost:11434`
-- thinking: disabled
-
-The adapter intentionally rejects `RAW` for now. That keeps `v0.1-direct` focused on validating the text-only QUESTION baseline before image transport is introduced.
-
-
 ## Benchmark Design
 
 Each generated scene has a canonical hidden state that is never inferred from the rendered image. The renderer produces the participant-facing visual scene, while questions and answers are derived mechanically from the hidden state.
@@ -105,26 +139,44 @@ The three current case families are:
 
 - **spatial:** tests relationships such as left/right placement from the rendered scene
 - **state:** tests directly observable physical states such as open/closed or intact/broken
-- **conflict:** tests whether witness testimony is contradicted by, or unresolved against, physical evidence under an explicit case rule
+- **conflict:** tests whether witness testimony is supported, contradicted, or unresolved by physical evidence under a constant case rule
 
-Family-specific participant payloads are intentionally separated so irrelevant evidence cannot leak answers. For example, spatial and state items do not receive witness testimony, while conflict items receive the testimony and exact rule required for arbitration.
+Family-specific participant payloads are intentionally separated so irrelevant evidence cannot leak answers. Spatial and state items do not receive witness testimony, while conflict items receive only the testimony and rule required for arbitration.
+
+## Evidence Conditions
+
+DetectiveLab currently supports five evaluation conditions:
+
+| Condition | Evidence path |
+| --- | --- |
+| `QUESTION` | participant-facing text only |
+| `RAW` | participant-facing text + rendered scene image |
+| `ORACLE_STRUCTURED` | correct symbolic facts from hidden benchmark state |
+| `EXTRACTED_STRUCTURED` | dense symbolic facts recovered from `scene.png` only |
+| `EXTRACTED_FOCUSED` | task-relevant subset of image-derived symbolic facts |
+
+`ORACLE_STRUCTURED` is a diagnostic upper bound, not a deployable perception system.
+
+`EXTRACTED_STRUCTURED` and `EXTRACTED_FOCUSED` both use a deterministic CPU-light extractor that reads only `scene.png`.
+
+The focused formatter may use participant-facing task text to select relevant extracted facts, but it does not read `scene.json`, gold labels, object IDs, seeds, or provenance.
 
 ## Research Evolution
 
-> benchmark -> direct perception -> oracle structure -> extracted structure -> hybrid evidence -> robustness -> routing only if justified
+> benchmark -> direct perception -> oracle structure -> extracted structure -> focused representation -> conflict arbitration -> hybrid / robustness / routing only if justified
 >
 > evidence before complexity
 
 | Version | Research question | Capability introduced | Status |
 | --- | --- | --- | --- |
 | `v0.0` | Can we create a deterministic multimodal benchmark without obvious shortcut leakage? | Synthetic scene schema, renderer, question generation, provenance, audits | **PRESERVED / CONFLICT INVALIDATED** |
-| `v0.0.1` | Can we remove the conflict-rule shortcut without changing the research question? | Constant rule, image-dependent 3-way conflict verdicts, leakage guards | **VALIDATED / QUESTION RERUN NEXT** |
-| `v0.1` | How much can the model solve from priors versus raw visual evidence? | QUESTION-only and RAW-image evaluation harness | **IN PROGRESS** |
-| `v0.2` | How much failure comes from perception versus reasoning? | Oracle structured visual state | Planned |
-| `v0.3` | Can explicit perception close the oracle gap? | Extracted structured evidence | Planned |
-| `v0.4` | Does retaining both pixels and structure improve robustness? | RAW + STRUCTURED hybrid path | Planned |
-| `v0.5` | When does structured evidence become brittle? | Controlled evidence corruption | Planned |
-| `v0.6` | Do different case types justify different evidence paths? | Routing, only if prior results justify it | Conditional |
+| `v0.0.1` | Can we remove the conflict-rule shortcut without changing the research question? | Constant rule, image-dependent 3-way conflict verdicts, leakage guards | **VALIDATED** |
+| `v0.1-direct` | How much can the model solve from priors versus raw visual evidence? | QUESTION and RAW evaluation harness; oracle diagnostic added | **COMPLETE** |
+| `v0.2-extracted-structure` | Can explicit image-derived structure recover the oracle gap? | Dense and focused image-only structured evidence | **COMPLETE** |
+| `v0.3-conflict-arbitration` | Why does conflict remain at 60% after perception is controlled? | Staged comparison / verdict reasoning diagnostics | **NEXT** |
+| later | Does retaining both pixels and structure improve robustness? | RAW + STRUCTURED hybrid path | Conditional |
+| later | When does structured evidence become brittle? | Controlled evidence corruption | Conditional |
+| later | Do different case types justify different evidence paths? | Routing | Conditional |
 
 ## Engineering Highlights
 
@@ -135,7 +187,13 @@ Family-specific participant payloads are intentionally separated so irrelevant e
 - family-specific participant payloads to reduce leakage
 - per-case provenance and SHA-256 hashes
 - reproducible benchmark export
-- automated schema, rendering, generation, and benchmark tests
+- resumable JSONL evaluation harness
+- local Ollama adapter with deterministic decoding defaults
+- RAW image transport through Ollama
+- oracle structured evidence formatter
+- deterministic image-only reference extractor
+- focused representation ablation
+- automated leakage and hidden-state access tests
 - manual and blind visual audits before freeze
 - explicit benchmark-version freeze rule
 
@@ -143,10 +201,13 @@ Family-specific participant payloads are intentionally separated so irrelevant e
 
 - `README.md`: project overview, current status, and local workflow
 - `DETECTIVELAB_PROJECT.md`: project charter, computational guardrails, and anti-drift rules
-- `src/detectivelab/`: domain schema, deterministic generation, rendering, export, and validation code
-- `tests/`: offline regression coverage for the frozen benchmark machinery
+- `src/detectivelab/`: domain, generation, rendering, extraction, evaluation, adapters, export, and validation code
+- `scripts/`: targeted diagnostics such as conflict and spatial audits
+- `tests/`: offline regression coverage for benchmark and evaluation behavior
+- `docs/results/`: milestone-level experimental results
 - `artifacts/benchmark_v0_0/`: preserved original benchmark; conflict family invalidated after leakage detection
-- `artifacts/benchmark_v0_0_1/`: corrected benchmark used for the next evaluation gate
+- `artifacts/benchmark_v0_0_1/`: corrected benchmark used for current experiments
+- `artifacts/evaluation/`: local evaluation outputs; JSONL runs are ignored by Git
 - `pyproject.toml`: packaging and development dependency configuration
 
 ## Running Locally
@@ -171,13 +232,13 @@ After the virtual environment has been created once, future sessions only need:
 source .venv/bin/activate
 ```
 
-The current branch should report:
+The current `v0.2-extracted-structure` branch should report:
 
 ```text
-41 passed
+57 passed
 ```
 
-## Reproducing the Frozen Benchmark Checks
+## Reproducing the Benchmark Checks
 
 Run the benchmark integrity and metadata check with:
 
@@ -185,7 +246,7 @@ Run the benchmark integrity and metadata check with:
 python -m detectivelab.validate artifacts/benchmark_v0_0_1
 ```
 
-A healthy frozen benchmark reports:
+A healthy benchmark reports:
 
 ```text
 Benchmark: artifacts/benchmark_v0_0_1
@@ -198,7 +259,7 @@ Audit status: PASS
 Status: PASS
 ```
 
-You can also inspect the frozen metadata directly:
+You can also inspect the benchmark metadata directly:
 
 ```bash
 cat artifacts/benchmark_v0_0_1/AUDIT.json
@@ -216,196 +277,124 @@ scene_0000/
 └── provenance.json
 ```
 
-Top-level freeze artifacts include:
+## Running the Current Experiments
 
-- `artifacts/benchmark_v0_0/manifest.json`
-- `artifacts/benchmark_v0_0/AUDIT.json`
-- `artifacts/benchmark_v0_0/FINAL_BLIND_AUDIT.md`
-- `artifacts/benchmark_v0_0/FINAL_BLIND_CONTACT.png`
+A local Ollama server is required for model-backed runs. The current reference model is `gemma3:4b`.
+
+QUESTION:
+
+```bash
+python -m detectivelab.cli.evaluate   --benchmark artifacts/benchmark_v0_0_1   --condition QUESTION   --adapter ollama   --model gemma3:4b   --output artifacts/evaluation/v0_1_question_gemma3_4b.jsonl
+```
+
+RAW:
+
+```bash
+python -m detectivelab.cli.evaluate   --benchmark artifacts/benchmark_v0_0_1   --condition RAW   --adapter ollama   --model gemma3:4b   --output artifacts/evaluation/v0_1_raw_gemma3_4b.jsonl
+```
+
+ORACLE_STRUCTURED:
+
+```bash
+python -m detectivelab.cli.evaluate   --benchmark artifacts/benchmark_v0_0_1   --condition ORACLE_STRUCTURED   --adapter ollama   --model gemma3:4b   --output artifacts/evaluation/v0_2_oracle_structured_gemma3_4b.jsonl
+```
+
+EXTRACTED_STRUCTURED:
+
+```bash
+python -m detectivelab.cli.evaluate   --benchmark artifacts/benchmark_v0_0_1   --condition EXTRACTED_STRUCTURED   --adapter ollama   --model gemma3:4b   --output artifacts/evaluation/v0_2_extracted_structured_gemma3_4b.jsonl
+```
+
+EXTRACTED_FOCUSED:
+
+```bash
+python -m detectivelab.cli.evaluate   --benchmark artifacts/benchmark_v0_0_1   --condition EXTRACTED_FOCUSED   --adapter ollama   --model gemma3:4b   --output artifacts/evaluation/v0_2_extracted_focused_gemma3_4b.jsonl
+```
+
+Current deterministic defaults:
+
+- temperature: `0.0`
+- output budget: `8` tokens
+- seed: `0`
+- Ollama URL: `http://localhost:11434`
+- thinking: disabled
+
+Evaluation JSONL outputs are local artifacts and should not be committed.
+
+## Diagnostic Scripts
+
+Conflict audit:
+
+```bash
+python scripts/audit_conflicts.py
+```
+
+Conflict perception/comparison probe:
+
+```bash
+python scripts/probe_conflict.py
+```
+
+Spatial dense-vs-focused audit:
+
+```bash
+python scripts/audit_spatial.py
+```
+
+These scripts exist to diagnose measured failures. They are not separate benchmark conditions.
 
 ## Limitations
 
-- `v0.0` is intentionally tiny: 10 scenes and 30 items are enough to validate the protocol, not to support broad claims about multimodal intelligence.
+- The benchmark is intentionally tiny: 10 scenes and 30 items are enough to validate mechanisms, not to support broad claims about multimodal intelligence.
 - The rendered scenes are synthetic and deliberately simple.
-- Current state questions cover only visually self-evident physical states; ambiguous symbolic conventions were removed before freeze.
-- No model-performance conclusions have been established yet.
+- The reference extractor is specific to the DetectiveLab rendering grammar and is not a natural-image perception system.
+- The current result is based primarily on one multimodal model, `gemma3:4b`.
+- The current percentages are descriptive and should not be treated as statistically stable population estimates.
+- Current state questions cover only visually self-evident physical states.
 - The benchmark does not currently cover OCR, natural photographs, video, audio, tool use, or open-ended generation.
+- `ORACLE_STRUCTURED` is an upper-bound diagnostic and should not be interpreted as a deployable architecture.
+- `EXTRACTED_FOCUSED` uses task text to select relevant extracted facts; this is deliberate and should be distinguished from blind scene summarization.
 
 ## What the Current Evidence Suggests
 
-The project has already reinforced a few methodological rules:
+The project currently supports several methodological lessons:
 
-- benchmark leakage can appear through label priors as easily as through prompt text
-- a visually deterministic benchmark can still fail a blind human audit if its symbols require learned conventions
-- participant-facing payloads need their own validation contract, separate from hidden-state correctness
-- provenance is only credible if current source code can regenerate the frozen artifacts
-- model complexity should not be added until the benchmark itself is trustworthy
+- benchmark leakage can appear through label priors and rule wording, not only direct answer leakage
+- participant-facing payloads need their own validation contract
+- multimodal failure is not a single category: grounding, perception, comparison, and verdict mapping can fail independently
+- correct structured evidence can outperform raw visual reasoning
+- dense correct structure can still hurt reasoning
+- task-relevant structure can recover the full measured oracle gap on the current slice
+- perception can be fully controlled while evidence arbitration remains difficult
+- model complexity should only be added after the previous experiment identifies a measured bottleneck
 
-In short, DetectiveLab currently suggests that multimodal architecture experiments should begin by controlling representation and evidence flow before comparing sophisticated models.
+In short:
 
-## Future Research
+> **Representation choice matters twice: first in whether visual evidence becomes explicit structure, and again in how much of that structure is exposed to the reasoner.**
 
-- rerun the QUESTION-only baseline on corrected `v0.0.1`; run RAW only after the conflict shortcut gate passes
-- compare RAW inference with oracle structured evidence to separate perception from reasoning error
-- introduce explicit visual extraction only after the oracle gap is measured
-- test whether hybrid RAW + STRUCTURED evidence improves conflict handling or merely adds redundancy
-- corrupt extracted evidence systematically to measure brittleness and error propagation
-- introduce evidence-path routing only if different case families show stable, meaningful path preferences
-- scale from 10 to 30 scenes only after the evaluation harness is trustworthy
+## Next Milestone
+
+### `v0.3-conflict-arbitration`
+
+Current state and spatial performance reach 100% under focused extracted evidence, while conflict remains at 60%.
+
+The next research question is therefore:
+
+> Why does conflict accuracy remain at 60% even when the relevant visual evidence is represented correctly and concisely?
+
+The next experiment should separate:
+
+1. target existence / absence
+2. state comparison
+3. witness-evidence agreement
+4. final verdict mapping
+
+No routing, hybrid RAW+STRUCTURED path, fine-tuning, or benchmark expansion should be added until this remaining bottleneck is understood.
 
 ## Freeze Rule
 
 Any later change to scene semantics, rendering conventions, participant payload composition, labels, or benchmark-generation behavior requires a **new benchmark version**.
 
-Do not rewrite `v0.0`. Benchmark corrections require a new version; `v0.0.1` is the first such correction.
+Do not rewrite `v0.0`.
 
-
-
-# DetectiveLab v0.2 Oracle Structured update
-
-Drop these files into the repo root while on `v0.1-direct`:
-
-```text
-src/detectivelab/evaluation/runner.py
-src/detectivelab/evaluation/structured.py
-tests/test_oracle_structured.py
-```
-
-The update adds a third evaluation condition:
-
-```text
-ORACLE_STRUCTURED
-```
-
-It derives participant-safe symbolic evidence from each frozen `scene.json` and sends no image to the model. The same adapter, model, decoding settings, payload context, questions, and scoring remain unchanged.
-
-Run:
-
-```bash
-python -m pytest
-```
-
-Expected after this update:
-
-```text
-46 passed
-```
-
-Then evaluate:
-
-```bash
-python -m detectivelab.cli.evaluate \
-  --benchmark artifacts/benchmark_v0_0_1 \
-  --condition ORACLE_STRUCTURED \
-  --adapter ollama \
-  --model gemma3:4b \
-  --output artifacts/evaluation/v0_2_oracle_structured_gemma3_4b.jsonl
-```
-
-Note: your local `src/detectivelab/cli/evaluate.py` must not contain the old QUESTION-only Ollama guard. You already removed that guard when promoting RAW support.
-
-
-# v0.2 Extracted Structure Update
-
-This drop-in update adds the `EXTRACTED_STRUCTURED` evaluation condition.
-
-## Files
-
-Copy these paths into the repository root:
-
-```text
-src/detectivelab/extraction/__init__.py
-src/detectivelab/extraction/base.py
-src/detectivelab/extraction/synthetic.py
-src/detectivelab/evaluation/runner.py
-tests/test_extracted_structured.py
-```
-
-## What the extractor does
-
-The reference extractor is deliberately synthetic-specific and CPU-light. It reads only `scene.png` and reverses DetectiveLab's small rendering grammar using:
-
-- connected visual components,
-- deterministic component merging,
-- renderer-template matching for object kind/state,
-- pixel color recovery,
-- image-space center ordering for spatial relations.
-
-It does **not** read `scene.json`, seeds, object IDs, provenance, or gold labels at runtime.
-
-On the frozen 10-scene `v0.0.1` slice, the extractor reconstructs all visible object color/kind/state tuples exactly. This is a reference extraction ceiling for the synthetic renderer, not a claim about natural-image perception.
-
-## Verify
-
-```bash
-python -m pytest
-```
-
-Expected:
-
-```text
-51 passed
-```
-
-## Run
-
-```bash
-python -m detectivelab.cli.evaluate \
-  --benchmark artifacts/benchmark_v0_0_1 \
-  --condition EXTRACTED_STRUCTURED \
-  --adapter ollama \
-  --model gemma3:4b \
-  --output artifacts/evaluation/v0_2_extracted_structured_gemma3_4b.jsonl
-```
-
-Compare against:
-
-```text
-RAW                53.3%
-ORACLE_STRUCTURED  86.7%
-EXTRACTED_STRUCTURED ?
-```
-
-
-# EXTRACTED_FOCUSED update
-
-Adds a task-focused representation ablation on top of the existing image-only synthetic extractor.
-
-## New condition
-
-`EXTRACTED_FOCUSED`
-
-- spatial: exposes only the two queried objects plus their extracted left/right relation
-- state: exposes only the queried object's extracted state
-- conflict: exposes only the object named in testimony, or `not present` when the extractor cannot find it
-
-The formatter uses participant-facing question/testimony text only to select relevant entities. All visual facts come from `scene.png` through the existing extractor. It does not read `scene.json`, gold labels, object IDs, seeds, or provenance.
-
-## Files
-
-- `src/detectivelab/evaluation/focused.py`
-- `src/detectivelab/evaluation/runner.py`
-- `tests/test_extracted_focused.py`
-
-## Test
-
-```bash
-python -m pytest
-```
-
-Expected in the patched repo:
-
-```text
-57 passed
-```
-
-## Run
-
-```bash
-python -m detectivelab.cli.evaluate \
-  --benchmark artifacts/benchmark_v0_0_1 \
-  --condition EXTRACTED_FOCUSED \
-  --adapter ollama \
-  --model gemma3:4b \
-  --output artifacts/evaluation/v0_2_extracted_focused_gemma3_4b.jsonl
-```
+Benchmark corrections require a new version; `v0.0.1` is the corrected benchmark used for current experiments.
