@@ -258,3 +258,48 @@ In short, DetectiveLab currently suggests that multimodal architecture experimen
 Any later change to scene semantics, rendering conventions, participant payload composition, labels, or benchmark-generation behavior requires a **new benchmark version**.
 
 Do not rewrite `v0.0`. Benchmark corrections require a new version; `v0.0.1` is the first such correction.
+
+
+
+# DetectiveLab v0.2 Oracle Structured update
+
+Drop these files into the repo root while on `v0.1-direct`:
+
+```text
+src/detectivelab/evaluation/runner.py
+src/detectivelab/evaluation/structured.py
+tests/test_oracle_structured.py
+```
+
+The update adds a third evaluation condition:
+
+```text
+ORACLE_STRUCTURED
+```
+
+It derives participant-safe symbolic evidence from each frozen `scene.json` and sends no image to the model. The same adapter, model, decoding settings, payload context, questions, and scoring remain unchanged.
+
+Run:
+
+```bash
+python -m pytest
+```
+
+Expected after this update:
+
+```text
+46 passed
+```
+
+Then evaluate:
+
+```bash
+python -m detectivelab.cli.evaluate \
+  --benchmark artifacts/benchmark_v0_0_1 \
+  --condition ORACLE_STRUCTURED \
+  --adapter ollama \
+  --model gemma3:4b \
+  --output artifacts/evaluation/v0_2_oracle_structured_gemma3_4b.jsonl
+```
+
+Note: your local `src/detectivelab/cli/evaluate.py` must not contain the old QUESTION-only Ollama guard. You already removed that guard when promoting RAW support.

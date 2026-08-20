@@ -11,9 +11,10 @@ from detectivelab.adapters.base import AdapterRequest, ModelAdapter
 
 from .records import PredictionRecord
 from .scoring import is_correct, normalize_prediction
+from .structured import build_structured_evidence
 
 
-VALID_CONDITIONS = {"QUESTION", "RAW"}
+VALID_CONDITIONS = {"QUESTION", "RAW", "ORACLE_STRUCTURED"}
 
 
 @dataclass(frozen=True)
@@ -34,8 +35,10 @@ def _read_json(path: Path):
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def _build_prompt(payload: dict) -> str:
+def _build_prompt(payload: dict, structured_evidence: str | None = None) -> str:
     lines: list[str] = []
+    if structured_evidence is not None:
+        lines.append(structured_evidence)
     for entry in payload.get("context", []):
         entry_type = entry.get("type", "context").replace("_", " ").title()
         lines.append(f"{entry_type}: {entry['text']}")
@@ -108,11 +111,16 @@ def run_evaluation(
                 continue
 
             image_path = case_dir / "scene.png" if condition == "RAW" else None
+            structured_evidence = None
+            if condition == "ORACLE_STRUCTURED":
+                scene = _read_json(case_dir / "scene.json")
+                structured_evidence = build_structured_evidence(scene)
+
             request = AdapterRequest(
                 item_id=payload["item_id"],
                 family=payload["family"],
                 answer_type=payload["answer_type"],
-                prompt=_build_prompt(payload),
+                prompt=_build_prompt(payload, structured_evidence),
                 image_path=image_path,
             )
 
