@@ -303,3 +303,109 @@ python -m detectivelab.cli.evaluate \
 ```
 
 Note: your local `src/detectivelab/cli/evaluate.py` must not contain the old QUESTION-only Ollama guard. You already removed that guard when promoting RAW support.
+
+
+# v0.2 Extracted Structure Update
+
+This drop-in update adds the `EXTRACTED_STRUCTURED` evaluation condition.
+
+## Files
+
+Copy these paths into the repository root:
+
+```text
+src/detectivelab/extraction/__init__.py
+src/detectivelab/extraction/base.py
+src/detectivelab/extraction/synthetic.py
+src/detectivelab/evaluation/runner.py
+tests/test_extracted_structured.py
+```
+
+## What the extractor does
+
+The reference extractor is deliberately synthetic-specific and CPU-light. It reads only `scene.png` and reverses DetectiveLab's small rendering grammar using:
+
+- connected visual components,
+- deterministic component merging,
+- renderer-template matching for object kind/state,
+- pixel color recovery,
+- image-space center ordering for spatial relations.
+
+It does **not** read `scene.json`, seeds, object IDs, provenance, or gold labels at runtime.
+
+On the frozen 10-scene `v0.0.1` slice, the extractor reconstructs all visible object color/kind/state tuples exactly. This is a reference extraction ceiling for the synthetic renderer, not a claim about natural-image perception.
+
+## Verify
+
+```bash
+python -m pytest
+```
+
+Expected:
+
+```text
+51 passed
+```
+
+## Run
+
+```bash
+python -m detectivelab.cli.evaluate \
+  --benchmark artifacts/benchmark_v0_0_1 \
+  --condition EXTRACTED_STRUCTURED \
+  --adapter ollama \
+  --model gemma3:4b \
+  --output artifacts/evaluation/v0_2_extracted_structured_gemma3_4b.jsonl
+```
+
+Compare against:
+
+```text
+RAW                53.3%
+ORACLE_STRUCTURED  86.7%
+EXTRACTED_STRUCTURED ?
+```
+
+
+# EXTRACTED_FOCUSED update
+
+Adds a task-focused representation ablation on top of the existing image-only synthetic extractor.
+
+## New condition
+
+`EXTRACTED_FOCUSED`
+
+- spatial: exposes only the two queried objects plus their extracted left/right relation
+- state: exposes only the queried object's extracted state
+- conflict: exposes only the object named in testimony, or `not present` when the extractor cannot find it
+
+The formatter uses participant-facing question/testimony text only to select relevant entities. All visual facts come from `scene.png` through the existing extractor. It does not read `scene.json`, gold labels, object IDs, seeds, or provenance.
+
+## Files
+
+- `src/detectivelab/evaluation/focused.py`
+- `src/detectivelab/evaluation/runner.py`
+- `tests/test_extracted_focused.py`
+
+## Test
+
+```bash
+python -m pytest
+```
+
+Expected in the patched repo:
+
+```text
+57 passed
+```
+
+## Run
+
+```bash
+python -m detectivelab.cli.evaluate \
+  --benchmark artifacts/benchmark_v0_0_1 \
+  --condition EXTRACTED_FOCUSED \
+  --adapter ollama \
+  --model gemma3:4b \
+  --output artifacts/evaluation/v0_2_extracted_focused_gemma3_4b.jsonl
+```

@@ -8,13 +8,15 @@ from pathlib import Path
 from typing import Iterable
 
 from detectivelab.adapters.base import AdapterRequest, ModelAdapter
+from detectivelab.extraction import extract_structured_evidence
 
+from .focused import build_focused_extracted_evidence
 from .records import PredictionRecord
 from .scoring import is_correct, normalize_prediction
 from .structured import build_structured_evidence
 
 
-VALID_CONDITIONS = {"QUESTION", "RAW", "ORACLE_STRUCTURED"}
+VALID_CONDITIONS = {"QUESTION", "RAW", "ORACLE_STRUCTURED", "EXTRACTED_STRUCTURED", "EXTRACTED_FOCUSED"}
 
 
 @dataclass(frozen=True)
@@ -115,6 +117,13 @@ def run_evaluation(
             if condition == "ORACLE_STRUCTURED":
                 scene = _read_json(case_dir / "scene.json")
                 structured_evidence = build_structured_evidence(scene)
+            elif condition == "EXTRACTED_STRUCTURED":
+                structured_evidence = extract_structured_evidence(case_dir / "scene.png")
+            elif condition == "EXTRACTED_FOCUSED":
+                structured_evidence = build_focused_extracted_evidence(
+                    image_path=case_dir / "scene.png",
+                    payload=payload,
+                )
 
             request = AdapterRequest(
                 item_id=payload["item_id"],
