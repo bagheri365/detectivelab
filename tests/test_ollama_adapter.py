@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import io
+import base64
 import json
 from pathlib import Path
 from urllib.error import URLError
@@ -60,10 +60,38 @@ def test_ollama_adapter_posts_deterministic_options(monkeypatch: pytest.MonkeyPa
     }
 
 
-def test_ollama_adapter_rejects_raw_image() -> None:
-    adapter = OllamaAdapter(model="qwen3:test")
-    with pytest.raises(ValueError, match="QUESTION only"):
-        adapter.predict(_request(Path("scene.png")))
+def test_ollama_adapter_posts_raw_image(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    captured: dict = {}
+    image_path = tmp_path / "scene.png"
+    image_bytes = b"fake-png-bytes"
+    image_path.write_bytes(image_bytes)
+
+    def fake_urlopen(request, timeout):
+        captured["payload"] = json.loads(request.data.decode("utf-8"))
+        return _FakeResponse({"response": "no", "done": True})
+
+    monkeypatch.setattr("detectivelab.adapters.ollama.urlopen", fake_urlopen)
+    adapter = OllamaAdapter(model="gemma3:test")
+
+    assert adapter.predict(_request(image_path)) == "no"
+    assert captured["payload"]["images"] == [
+        base64.b64encode(image_bytes).decode("ascii")
+    ]
+    assert captured["payload"]["model"] == "gemma3:test"
+    assert captured["payload"]["prompt"] == _request(image_path).prompt
+    assert captured["payload"]["stream"] is False
+    assert captured["payload"]["think"] is False
+    assert captured["payload"]["options"] == {
+        "temperature": 0.0,
+        "num_predict": 8,
+        "seed": 0,
+    }
+
+
+def test_ollama_adapter_reports_missing_raw_image() -> None:
+    adapter = OllamaAdapter(model="gemma3:test")
+    with pytest.raises(FileNotFoundError, match="Missing RAW image"):
+        adapter.predict(_request(Path("missing-scene.png")))
 
 
 def test_ollama_adapter_reports_connection_failure(monkeypatch: pytest.MonkeyPatch) -> None:

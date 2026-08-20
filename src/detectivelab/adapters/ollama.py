@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import json
 from dataclasses import dataclass
 from urllib.error import HTTPError, URLError
@@ -13,8 +14,9 @@ class OllamaAdapter:
     """Dependency-free adapter for a local Ollama server.
 
     The adapter uses Ollama's /api/generate endpoint with streaming disabled.
-    v0.1-direct intentionally supports text-only QUESTION evaluation first;
-    RAW image support is added only when the visual condition is promoted.
+    QUESTION requests are text-only. RAW requests attach the rendered scene
+    image using Ollama's base64 ``images`` field while keeping the prompt and
+    decoding settings unchanged.
     """
 
     model: str
@@ -30,12 +32,6 @@ class OllamaAdapter:
         return f"ollama:{self.model}"
 
     def predict(self, request: AdapterRequest) -> str:
-        if request.image_path is not None:
-            raise ValueError(
-                "OllamaAdapter v0.1 supports QUESTION only; RAW image input "
-                "has not been promoted yet."
-            )
-
         payload = {
             "model": self.model,
             "prompt": request.prompt,
@@ -47,6 +43,15 @@ class OllamaAdapter:
                 "seed": self.seed,
             },
         }
+
+        if request.image_path is not None:
+            image_path = request.image_path
+            if not image_path.is_file():
+                raise FileNotFoundError(f"Missing RAW image: {image_path}")
+            payload["images"] = [
+                base64.b64encode(image_path.read_bytes()).decode("ascii")
+            ]
+
         data = json.dumps(payload).encode("utf-8")
         req = Request(
             f"{self.base_url.rstrip('/')}/api/generate",

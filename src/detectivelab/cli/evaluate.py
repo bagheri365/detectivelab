@@ -30,11 +30,6 @@ def _build_adapter(args: argparse.Namespace):
     if args.adapter == "ollama":
         if not args.model:
             raise SystemExit("--model is required with --adapter ollama")
-        if args.condition != "QUESTION":
-            raise SystemExit(
-                "The v0.1 Ollama adapter is intentionally QUESTION-only. "
-                "RAW image support has not been promoted yet."
-            )
         return OllamaAdapter(
             model=args.model,
             base_url=args.ollama_url,
@@ -44,7 +39,6 @@ def _build_adapter(args: argparse.Namespace):
         )
 
     raise SystemExit(f"Unsupported adapter: {args.adapter}")
-
 
 def main() -> int:
     args = _parse_args()
