@@ -1,0 +1,16 @@
+{
+  "artifacts": {
+    "payloads.json": "8d3ba97008b81cecdbaf4ae9697f8721610a1c0da1cdbcfa7ab2d748f22b3f01",
+    "questions.json": "40b16bfc329302b2515901df14644a6cbd396e9ed74d07c51dd9f65f6c8080c4",
+    "scene.json": "68fe08a75e97dea4cdc17119727861fd1d77fc72f7d13bb18eb6d80673c0a13a",
+    "scene.png": "b8d329e1e1fb2ed4f73bc2e19fd26faef8f95e0acf43c9d064010c3bc491ae4e"
+  },
+  "benchmark_version": "v0.0",
+  "renderer": {
+    "canvas_size": 256,
+    "format": "PNG"
+  },
+  "scene_id": "scene_0000",
+  "schema_version": "0.1",
+  "seed": 0
+}

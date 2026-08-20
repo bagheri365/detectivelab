@@ -1,0 +1,140 @@
+{
+  "objects": [
+    {
+      "attributes": {},
+      "color": "blue",
+      "container_id": null,
+      "kind": "window",
+      "object_id": "window_1",
+      "orientation_deg": 0,
+      "position": {
+        "x": 0.3162,
+        "y": 0.2928
+      },
+      "size": {
+        "height": 0.22,
+        "width": 0.2
+      },
+      "state": "closed",
+      "visibility": "visible"
+    },
+    {
+      "attributes": {},
+      "color": "white",
+      "container_id": null,
+      "kind": "notebook",
+      "object_id": "notebook_2",
+      "orientation_deg": 0,
+      "position": {
+        "x": 0.8998,
+        "y": 0.6163
+      },
+      "size": {
+        "height": 0.1,
+        "width": 0.14
+      },
+      "state": "open",
+      "visibility": "visible"
+    },
+    {
+      "attributes": {},
+      "color": "black",
+      "container_id": null,
+      "kind": "envelope",
+      "object_id": "envelope_3",
+      "orientation_deg": 0,
+      "position": {
+        "x": 0.3951,
+        "y": 0.8791
+      },
+      "size": {
+        "height": 0.07,
+        "width": 0.12
+      },
+      "state": null,
+      "visibility": "visible"
+    },
+    {
+      "attributes": {},
+      "color": "blue",
+      "container_id": null,
+      "kind": "briefcase",
+      "object_id": "briefcase_4",
+      "orientation_deg": 0,
+      "position": {
+        "x": 0.5466,
+        "y": 0.281
+      },
+      "size": {
+        "height": 0.11,
+        "width": 0.17
+      },
+      "state": null,
+      "visibility": "visible"
+    },
+    {
+      "attributes": {},
+      "color": "white",
+      "container_id": null,
+      "kind": "glass",
+      "object_id": "glass_5",
+      "orientation_deg": 0,
+      "position": {
+        "x": 0.8424,
+        "y": 0.7463
+      },
+      "size": {
+        "height": 0.11,
+        "width": 0.07
+      },
+      "state": "intact",
+      "visibility": "visible"
+    },
+    {
+      "attributes": {},
+      "color": "red",
+      "container_id": null,
+      "kind": "door",
+      "object_id": "door_6",
+      "orientation_deg": 0,
+      "position": {
+        "x": 0.365,
+        "y": 0.6197
+      },
+      "size": {
+        "height": 0.34,
+        "width": 0.17
+      },
+      "state": "closed",
+      "visibility": "visible"
+    }
+  ],
+  "relations": [
+    {
+      "object_id": "envelope_3",
+      "relation": "right_of",
+      "subject_id": "glass_5"
+    }
+  ],
+  "rules": [
+    {
+      "description": "Current physical evidence overrides unverified witness testimony.",
+      "evidence_priority": "physical_over_testimony",
+      "rule_id": "rule_1"
+    }
+  ],
+  "scene_id": "scene_0002",
+  "schema_version": "0.1",
+  "seed": 2,
+  "witness_statements": [
+    {
+      "claim": "The witness says the blue window was open.",
+      "predicate": "state",
+      "statement_id": "stmt_1",
+      "subject_id": "window_1",
+      "value": "open",
+      "verified": false,
+      "witness_id": "witness_a"
+    }
+  ]
+}

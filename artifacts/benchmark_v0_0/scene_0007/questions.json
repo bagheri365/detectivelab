@@ -1,0 +1,44 @@
+[
+  {
+    "answer": "no",
+    "answer_type": "yes_no",
+    "evidence_ids": [
+      "key_4",
+      "lamp_2"
+    ],
+    "family": "spatial",
+    "item_id": "scene_0007__spatial",
+    "question": "Is the black key left of the black lamp?",
+    "rationale": "The canonical scene relation records key_4 as right_of lamp_2.",
+    "scene_id": "scene_0007",
+    "schema_version": "0.1"
+  },
+  {
+    "answer": "yes",
+    "answer_type": "yes_no",
+    "evidence_ids": [
+      "notebook_1"
+    ],
+    "family": "state",
+    "item_id": "scene_0007__state",
+    "question": "Is the black notebook currently open?",
+    "rationale": "The hidden scene state records notebook_1.state=open; the question asks whether it is open.",
+    "scene_id": "scene_0007",
+    "schema_version": "0.1"
+  },
+  {
+    "answer": "unknown",
+    "answer_type": "evidence_verdict",
+    "evidence_ids": [
+      "stmt_1",
+      "notebook_1",
+      "rule_1"
+    ],
+    "family": "conflict",
+    "item_id": "scene_0007__conflict",
+    "question": "Given the current physical scene, witness testimony, and case rule, is the testimony supported, contradicted, or unknown?",
+    "rationale": "The sources disagree and no applicable evidence-priority rule resolves them.",
+    "scene_id": "scene_0007",
+    "schema_version": "0.1"
+  }
+]

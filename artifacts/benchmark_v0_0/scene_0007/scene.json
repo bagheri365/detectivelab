@@ -1,0 +1,140 @@
+{
+  "objects": [
+    {
+      "attributes": {},
+      "color": "black",
+      "container_id": null,
+      "kind": "notebook",
+      "object_id": "notebook_1",
+      "orientation_deg": 0,
+      "position": {
+        "x": 0.3926,
+        "y": 0.1287
+      },
+      "size": {
+        "height": 0.1,
+        "width": 0.14
+      },
+      "state": "open",
+      "visibility": "visible"
+    },
+    {
+      "attributes": {},
+      "color": "black",
+      "container_id": null,
+      "kind": "lamp",
+      "object_id": "lamp_2",
+      "orientation_deg": 0,
+      "position": {
+        "x": 0.4329,
+        "y": 0.3081
+      },
+      "size": {
+        "height": 0.2,
+        "width": 0.12
+      },
+      "state": null,
+      "visibility": "visible"
+    },
+    {
+      "attributes": {},
+      "color": "blue",
+      "container_id": null,
+      "kind": "chair",
+      "object_id": "chair_3",
+      "orientation_deg": 0,
+      "position": {
+        "x": 0.4411,
+        "y": 0.7419
+      },
+      "size": {
+        "height": 0.2,
+        "width": 0.16
+      },
+      "state": null,
+      "visibility": "visible"
+    },
+    {
+      "attributes": {},
+      "color": "black",
+      "container_id": null,
+      "kind": "key",
+      "object_id": "key_4",
+      "orientation_deg": 0,
+      "position": {
+        "x": 0.8848,
+        "y": 0.6176
+      },
+      "size": {
+        "height": 0.04,
+        "width": 0.08
+      },
+      "state": null,
+      "visibility": "visible"
+    },
+    {
+      "attributes": {},
+      "color": "red",
+      "container_id": null,
+      "kind": "glass",
+      "object_id": "glass_5",
+      "orientation_deg": 0,
+      "position": {
+        "x": 0.5671,
+        "y": 0.4142
+      },
+      "size": {
+        "height": 0.11,
+        "width": 0.07
+      },
+      "state": "intact",
+      "visibility": "visible"
+    },
+    {
+      "attributes": {},
+      "color": "green",
+      "container_id": null,
+      "kind": "footprint",
+      "object_id": "footprint_6",
+      "orientation_deg": 0,
+      "position": {
+        "x": 0.1101,
+        "y": 0.7939
+      },
+      "size": {
+        "height": 0.12,
+        "width": 0.08
+      },
+      "state": null,
+      "visibility": "visible"
+    }
+  ],
+  "relations": [
+    {
+      "object_id": "lamp_2",
+      "relation": "right_of",
+      "subject_id": "key_4"
+    }
+  ],
+  "rules": [
+    {
+      "description": "When physical evidence and unverified testimony disagree, neither source has automatic priority.",
+      "evidence_priority": "no_priority",
+      "rule_id": "rule_1"
+    }
+  ],
+  "scene_id": "scene_0007",
+  "schema_version": "0.1",
+  "seed": 7,
+  "witness_statements": [
+    {
+      "claim": "The witness says the black notebook was closed.",
+      "predicate": "state",
+      "statement_id": "stmt_1",
+      "subject_id": "notebook_1",
+      "value": "closed",
+      "verified": false,
+      "witness_id": "witness_a"
+    }
+  ]
+}

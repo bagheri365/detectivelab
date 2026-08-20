@@ -1,0 +1,44 @@
+[
+  {
+    "answer": "no",
+    "answer_type": "yes_no",
+    "evidence_ids": [
+      "painting_2",
+      "chair_6"
+    ],
+    "family": "spatial",
+    "item_id": "scene_0005__spatial",
+    "question": "Is the amber painting left of the red chair?",
+    "rationale": "The canonical scene relation records painting_2 as right_of chair_6.",
+    "scene_id": "scene_0005",
+    "schema_version": "0.1"
+  },
+  {
+    "answer": "no",
+    "answer_type": "yes_no",
+    "evidence_ids": [
+      "notebook_1"
+    ],
+    "family": "state",
+    "item_id": "scene_0005__state",
+    "question": "Is the blue notebook currently closed?",
+    "rationale": "The hidden scene state records notebook_1.state=open; the question asks whether it is closed.",
+    "scene_id": "scene_0005",
+    "schema_version": "0.1"
+  },
+  {
+    "answer": "unknown",
+    "answer_type": "evidence_verdict",
+    "evidence_ids": [
+      "stmt_1",
+      "notebook_1",
+      "rule_1"
+    ],
+    "family": "conflict",
+    "item_id": "scene_0005__conflict",
+    "question": "Given the current physical scene, witness testimony, and case rule, is the testimony supported, contradicted, or unknown?",
+    "rationale": "The sources disagree and no applicable evidence-priority rule resolves them.",
+    "scene_id": "scene_0005",
+    "schema_version": "0.1"
+  }
+]

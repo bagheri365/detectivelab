@@ -1,0 +1,140 @@
+{
+  "objects": [
+    {
+      "attributes": {},
+      "color": "black",
+      "container_id": null,
+      "kind": "door",
+      "object_id": "door_1",
+      "orientation_deg": 0,
+      "position": {
+        "x": 0.1806,
+        "y": 0.3485
+      },
+      "size": {
+        "height": 0.34,
+        "width": 0.17
+      },
+      "state": "open",
+      "visibility": "visible"
+    },
+    {
+      "attributes": {},
+      "color": "amber",
+      "container_id": null,
+      "kind": "briefcase",
+      "object_id": "briefcase_2",
+      "orientation_deg": 0,
+      "position": {
+        "x": 0.2762,
+        "y": 0.6178
+      },
+      "size": {
+        "height": 0.11,
+        "width": 0.17
+      },
+      "state": null,
+      "visibility": "visible"
+    },
+    {
+      "attributes": {},
+      "color": "black",
+      "container_id": null,
+      "kind": "painting",
+      "object_id": "painting_3",
+      "orientation_deg": 0,
+      "position": {
+        "x": 0.4904,
+        "y": 0.4146
+      },
+      "size": {
+        "height": 0.16,
+        "width": 0.18
+      },
+      "state": null,
+      "visibility": "visible"
+    },
+    {
+      "attributes": {},
+      "color": "amber",
+      "container_id": null,
+      "kind": "glass",
+      "object_id": "glass_4",
+      "orientation_deg": 0,
+      "position": {
+        "x": 0.8457,
+        "y": 0.4192
+      },
+      "size": {
+        "height": 0.11,
+        "width": 0.07
+      },
+      "state": "intact",
+      "visibility": "visible"
+    },
+    {
+      "attributes": {},
+      "color": "black",
+      "container_id": null,
+      "kind": "lamp",
+      "object_id": "lamp_5",
+      "orientation_deg": 0,
+      "position": {
+        "x": 0.9031,
+        "y": 0.1767
+      },
+      "size": {
+        "height": 0.2,
+        "width": 0.12
+      },
+      "state": null,
+      "visibility": "visible"
+    },
+    {
+      "attributes": {},
+      "color": "black",
+      "container_id": null,
+      "kind": "envelope",
+      "object_id": "envelope_6",
+      "orientation_deg": 0,
+      "position": {
+        "x": 0.1606,
+        "y": 0.851
+      },
+      "size": {
+        "height": 0.07,
+        "width": 0.12
+      },
+      "state": null,
+      "visibility": "visible"
+    }
+  ],
+  "relations": [
+    {
+      "object_id": "lamp_5",
+      "relation": "left_of",
+      "subject_id": "briefcase_2"
+    }
+  ],
+  "rules": [
+    {
+      "description": "Current physical evidence overrides unverified witness testimony.",
+      "evidence_priority": "physical_over_testimony",
+      "rule_id": "rule_1"
+    }
+  ],
+  "scene_id": "scene_0008",
+  "schema_version": "0.1",
+  "seed": 8,
+  "witness_statements": [
+    {
+      "claim": "The witness says the black door was closed.",
+      "predicate": "state",
+      "statement_id": "stmt_1",
+      "subject_id": "door_1",
+      "value": "closed",
+      "verified": false,
+      "witness_id": "witness_a"
+    }
+  ]
+}

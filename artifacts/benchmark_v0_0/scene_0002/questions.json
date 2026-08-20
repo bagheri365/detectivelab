@@ -1,0 +1,44 @@
+[
+  {
+    "answer": "yes",
+    "answer_type": "yes_no",
+    "evidence_ids": [
+      "glass_5",
+      "envelope_3"
+    ],
+    "family": "spatial",
+    "item_id": "scene_0002__spatial",
+    "question": "Is the white glass right of the black envelope?",
+    "rationale": "The canonical scene relation records glass_5 as right_of envelope_3.",
+    "scene_id": "scene_0002",
+    "schema_version": "0.1"
+  },
+  {
+    "answer": "no",
+    "answer_type": "yes_no",
+    "evidence_ids": [
+      "window_1"
+    ],
+    "family": "state",
+    "item_id": "scene_0002__state",
+    "question": "Is the blue window currently open?",
+    "rationale": "The hidden scene state records window_1.state=closed; the question asks whether it is open.",
+    "scene_id": "scene_0002",
+    "schema_version": "0.1"
+  },
+  {
+    "answer": "contradicted",
+    "answer_type": "evidence_verdict",
+    "evidence_ids": [
+      "stmt_1",
+      "window_1",
+      "rule_1"
+    ],
+    "family": "conflict",
+    "item_id": "scene_0002__conflict",
+    "question": "Given the current physical scene, witness testimony, and case rule, is the testimony supported, contradicted, or unknown?",
+    "rationale": "The witness claims state=open, while physical evidence records state=closed; the case rule prioritizes physical evidence.",
+    "scene_id": "scene_0002",
+    "schema_version": "0.1"
+  }
+]

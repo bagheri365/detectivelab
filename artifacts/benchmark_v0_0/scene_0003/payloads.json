@@ -1,0 +1,35 @@
+[
+  {
+    "answer_type": "yes_no",
+    "context": [],
+    "family": "spatial",
+    "item_id": "scene_0003__spatial",
+    "question": "Is the black clock left of the black glass?",
+    "scene_id": "scene_0003"
+  },
+  {
+    "answer_type": "yes_no",
+    "context": [],
+    "family": "state",
+    "item_id": "scene_0003__state",
+    "question": "Is the blue door currently closed?",
+    "scene_id": "scene_0003"
+  },
+  {
+    "answer_type": "evidence_verdict",
+    "context": [
+      {
+        "text": "The witness says the blue door was open.",
+        "type": "witness_testimony"
+      },
+      {
+        "text": "When physical evidence and unverified testimony disagree, neither source has automatic priority.",
+        "type": "case_rule"
+      }
+    ],
+    "family": "conflict",
+    "item_id": "scene_0003__conflict",
+    "question": "Given the current physical scene, witness testimony, and case rule, is the testimony supported, contradicted, or unknown?",
+    "scene_id": "scene_0003"
+  }
+]

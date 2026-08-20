@@ -1,0 +1,35 @@
+[
+  {
+    "answer_type": "yes_no",
+    "context": [],
+    "family": "spatial",
+    "item_id": "scene_0002__spatial",
+    "question": "Is the white glass right of the black envelope?",
+    "scene_id": "scene_0002"
+  },
+  {
+    "answer_type": "yes_no",
+    "context": [],
+    "family": "state",
+    "item_id": "scene_0002__state",
+    "question": "Is the blue window currently open?",
+    "scene_id": "scene_0002"
+  },
+  {
+    "answer_type": "evidence_verdict",
+    "context": [
+      {
+        "text": "The witness says the blue window was open.",
+        "type": "witness_testimony"
+      },
+      {
+        "text": "Current physical evidence overrides unverified witness testimony.",
+        "type": "case_rule"
+      }
+    ],
+    "family": "conflict",
+    "item_id": "scene_0002__conflict",
+    "question": "Given the current physical scene, witness testimony, and case rule, is the testimony supported, contradicted, or unknown?",
+    "scene_id": "scene_0002"
+  }
+]

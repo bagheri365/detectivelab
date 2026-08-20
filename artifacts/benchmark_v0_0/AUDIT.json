@@ -1,0 +1,24 @@
+{
+  "answer_counts": {
+    "conflict": {
+      "contradicted": 5,
+      "unknown": 5
+    },
+    "spatial": {
+      "no": 5,
+      "yes": 5
+    },
+    "state": {
+      "no": 5,
+      "yes": 5
+    }
+  },
+  "family_counts": {
+    "conflict": 10,
+    "spatial": 10,
+    "state": 10
+  },
+  "item_count": 30,
+  "scene_count": 10,
+  "status": "PASS"
+}
