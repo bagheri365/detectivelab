@@ -28,3 +28,12 @@ def test_conflict_payload_contains_testimony_and_rule():
     assert [entry["type"] for entry in payload["context"]] == ["witness_testimony", "case_rule"]
     assert scene.witness_statements[0].claim in str(payload)
     assert scene.rules[0].description in str(payload)
+
+
+def test_conflict_rule_text_is_constant_across_frozen_slice():
+    rule_texts = set()
+    for seed in range(10):
+        scene, items = _by_family(seed)
+        payload = build_payload(scene, items[CaseFamily.CONFLICT])
+        rule_texts.add(payload["context"][1]["text"])
+    assert len(rule_texts) == 1

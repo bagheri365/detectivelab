@@ -1,0 +1,43 @@
+[
+  {
+    "answer": "no",
+    "answer_type": "yes_no",
+    "evidence_ids": [
+      "clock_6",
+      "glass_4"
+    ],
+    "family": "spatial",
+    "item_id": "scene_0003__spatial",
+    "question": "Is the black clock left of the black glass?",
+    "rationale": "The canonical scene relation records clock_6 as right_of glass_4.",
+    "scene_id": "scene_0003",
+    "schema_version": "0.1"
+  },
+  {
+    "answer": "yes",
+    "answer_type": "yes_no",
+    "evidence_ids": [
+      "door_1"
+    ],
+    "family": "state",
+    "item_id": "scene_0003__state",
+    "question": "Is the blue door currently closed?",
+    "rationale": "The hidden scene state records door_1.state=closed; the question asks whether it is closed.",
+    "scene_id": "scene_0003",
+    "schema_version": "0.1"
+  },
+  {
+    "answer": "unknown",
+    "answer_type": "evidence_verdict",
+    "evidence_ids": [
+      "stmt_1",
+      "rule_1"
+    ],
+    "family": "conflict",
+    "item_id": "scene_0003__conflict",
+    "question": "Given the current physical scene, witness testimony, and case rule, is the testimony supported, contradicted, or unknown?",
+    "rationale": "The testimony names an object-state claim that the current scene does not contain, so the physical evidence cannot resolve the claim.",
+    "scene_id": "scene_0003",
+    "schema_version": "0.1"
+  }
+]

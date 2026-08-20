@@ -1,0 +1,140 @@
+{
+  "objects": [
+    {
+      "attributes": {},
+      "color": "red",
+      "container_id": null,
+      "kind": "door",
+      "object_id": "door_1",
+      "orientation_deg": 0,
+      "position": {
+        "x": 0.4786,
+        "y": 0.4278
+      },
+      "size": {
+        "height": 0.34,
+        "width": 0.17
+      },
+      "state": "closed",
+      "visibility": "visible"
+    },
+    {
+      "attributes": {},
+      "color": "amber",
+      "container_id": null,
+      "kind": "footprint",
+      "object_id": "footprint_2",
+      "orientation_deg": 0,
+      "position": {
+        "x": 0.1507,
+        "y": 0.1132
+      },
+      "size": {
+        "height": 0.12,
+        "width": 0.08
+      },
+      "state": null,
+      "visibility": "visible"
+    },
+    {
+      "attributes": {},
+      "color": "white",
+      "container_id": null,
+      "kind": "notebook",
+      "object_id": "notebook_3",
+      "orientation_deg": 0,
+      "position": {
+        "x": 0.586,
+        "y": 0.7244
+      },
+      "size": {
+        "height": 0.1,
+        "width": 0.14
+      },
+      "state": "closed",
+      "visibility": "visible"
+    },
+    {
+      "attributes": {},
+      "color": "green",
+      "container_id": null,
+      "kind": "clock",
+      "object_id": "clock_4",
+      "orientation_deg": 0,
+      "position": {
+        "x": 0.2749,
+        "y": 0.8696
+      },
+      "size": {
+        "height": 0.11,
+        "width": 0.11
+      },
+      "state": null,
+      "visibility": "visible"
+    },
+    {
+      "attributes": {},
+      "color": "amber",
+      "container_id": null,
+      "kind": "envelope",
+      "object_id": "envelope_5",
+      "orientation_deg": 0,
+      "position": {
+        "x": 0.534,
+        "y": 0.8821
+      },
+      "size": {
+        "height": 0.07,
+        "width": 0.12
+      },
+      "state": null,
+      "visibility": "visible"
+    },
+    {
+      "attributes": {},
+      "color": "amber",
+      "container_id": null,
+      "kind": "lamp",
+      "object_id": "lamp_6",
+      "orientation_deg": 0,
+      "position": {
+        "x": 0.6852,
+        "y": 0.5204
+      },
+      "size": {
+        "height": 0.2,
+        "width": 0.12
+      },
+      "state": null,
+      "visibility": "visible"
+    }
+  ],
+  "relations": [
+    {
+      "object_id": "envelope_5",
+      "relation": "left_of",
+      "subject_id": "clock_4"
+    }
+  ],
+  "rules": [
+    {
+      "description": "Current physical evidence overrides unverified witness testimony.",
+      "evidence_priority": "physical_over_testimony",
+      "rule_id": "rule_1"
+    }
+  ],
+  "scene_id": "scene_0001",
+  "schema_version": "0.1",
+  "seed": 1,
+  "witness_statements": [
+    {
+      "claim": "The witness says the red door is currently closed.",
+      "predicate": "state",
+      "statement_id": "stmt_1",
+      "subject_id": "door_1",
+      "value": "closed",
+      "verified": false,
+      "witness_id": "witness_a"
+    }
+  ]
+}

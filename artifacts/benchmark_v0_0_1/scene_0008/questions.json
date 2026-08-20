@@ -1,0 +1,44 @@
+[
+  {
+    "answer": "yes",
+    "answer_type": "yes_no",
+    "evidence_ids": [
+      "briefcase_2",
+      "lamp_5"
+    ],
+    "family": "spatial",
+    "item_id": "scene_0008__spatial",
+    "question": "Is the amber briefcase left of the black lamp?",
+    "rationale": "The canonical scene relation records briefcase_2 as left_of lamp_5.",
+    "scene_id": "scene_0008",
+    "schema_version": "0.1"
+  },
+  {
+    "answer": "yes",
+    "answer_type": "yes_no",
+    "evidence_ids": [
+      "door_1"
+    ],
+    "family": "state",
+    "item_id": "scene_0008__state",
+    "question": "Is the black door currently open?",
+    "rationale": "The hidden scene state records door_1.state=open; the question asks whether it is open.",
+    "scene_id": "scene_0008",
+    "schema_version": "0.1"
+  },
+  {
+    "answer": "contradicted",
+    "answer_type": "evidence_verdict",
+    "evidence_ids": [
+      "stmt_1",
+      "rule_1",
+      "door_1"
+    ],
+    "family": "conflict",
+    "item_id": "scene_0008__conflict",
+    "question": "Given the current physical scene, witness testimony, and case rule, is the testimony supported, contradicted, or unknown?",
+    "rationale": "The witness claims state=closed, while physical evidence records state=open; the constant case rule prioritizes physical evidence.",
+    "scene_id": "scene_0008",
+    "schema_version": "0.1"
+  }
+]

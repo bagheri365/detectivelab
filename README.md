@@ -7,10 +7,11 @@ Evidence before complexity is the project rule: freeze the benchmark, add one ca
 ## At a Glance
 
 - **Research question:** when multimodal evidence conflicts, should an AI reason from raw perception, structured observations, or both?
-- **Current milestone:** `v0.0-benchmark` is **FROZEN**.
-- **Frozen benchmark:** 10 deterministic scenes, 30 total items, and three case families: spatial, state, and conflict.
+- **Current milestone:** `v0.0.1-benchmark-fix` is **VALIDATED**; rerun the QUESTION baseline before RAW.
+- **Current benchmark:** 10 deterministic scenes, 30 total items, and three case families: spatial, state, and conflict.
+- **Preserved history:** `v0.0` remains frozen for provenance but its conflict family is invalidated for QUESTION-only shortcut leakage.
 - **Compute constraint:** the reference benchmark and evaluation workflow must remain runnable on a consumer Mac CPU without required model training.
-- **Next experiment:** `v0.1-direct`, comparing QUESTION-only and RAW-image baselines without modifying the frozen benchmark.
+- **Next experiment:** rerun the `v0.1-direct` QUESTION-only baseline on `v0.0.1`; run RAW only if the conflict shortcut is gone.
 - **Project charter:** see [`DETECTIVELAB_PROJECT.md`](./DETECTIVELAB_PROJECT.md).
 
 ## Why This Project Exists
@@ -37,24 +38,64 @@ The long-term hypothesis is that different case requirements may favor different
 
 ## Current Findings
 
-`v0.0` does not make a model-performance claim yet. Its result is methodological: the benchmark is now small, deterministic, balanced, auditable, and frozen before model evaluation begins.
+The first real QUESTION-only run exposed a benchmark bug before any RAW-image claim was made. On preserved `v0.0`, Qwen3 4B scored:
 
-The frozen slice contains:
+- spatial: 50%
+- state: 50%
+- conflict: 100%
+
+The conflict family was therefore **invalidated for shortcut leakage**: its verdict could be inferred from case-rule wording without seeing the scene. `v0.0` remains preserved as the original frozen artifact and should not be rewritten.
+
+`v0.0.1` corrects that flaw while keeping the benchmark small and deterministic:
 
 - 10 deterministic scenes (`seed=0..9`)
 - 30 total items: one spatial, one state, and one conflict item per scene
-- balanced closed-form labels for all three case families
+- spatial: 5 `yes`, 5 `no`
+- state: 5 `yes`, 5 `no`
+- conflict: 3 `supported`, 3 `contradicted`, 4 `unknown`
+- one identical conflict rule across all scenes
+- STATE questions generated independently from witness testimony
 - deterministic CPU-light rendering
 - participant-facing family-specific payloads
 - per-case provenance and SHA-256 hashes
-- automated validation plus manual and blind audit artifacts
+- automated validation status: `PASS`
 
-The current benchmark audit reports:
+See [`artifacts/benchmark_v0_0_1/BENCHMARK_FIX.md`](./artifacts/benchmark_v0_0_1/BENCHMARK_FIX.md) for the correction record.
 
-- spatial: 5 `yes`, 5 `no`
-- state: 5 `yes`, 5 `no`
-- conflict: 5 `contradicted`, 5 `unknown`
-- overall audit status: `PASS`
+
+# v0.1 Ollama adapter
+
+Copy `src/` and `tests/` into the repository root, preserving paths.
+
+No new Python dependency is required. The adapter uses Python's standard-library HTTP client and expects a local Ollama server on `http://localhost:11434`.
+
+Run tests:
+
+```bash
+python -m pytest
+```
+
+Run the first real QUESTION baseline:
+
+```bash
+python -m detectivelab.cli.evaluate \
+  --benchmark artifacts/benchmark_v0_0_1 \
+  --condition QUESTION \
+  --adapter ollama \
+  --model qwen3:4b-instruct-2507-q4_K_M \
+  --output artifacts/evaluation/v0_1_question_qwen3_4b.jsonl
+```
+
+Defaults are frozen for this first pass:
+
+- temperature: `0.0`
+- output budget: `8` tokens
+- seed: `0`
+- Ollama URL: `http://localhost:11434`
+- thinking: disabled
+
+The adapter intentionally rejects `RAW` for now. That keeps `v0.1-direct` focused on validating the text-only QUESTION baseline before image transport is introduced.
+
 
 ## Benchmark Design
 
@@ -76,8 +117,9 @@ Family-specific participant payloads are intentionally separated so irrelevant e
 
 | Version | Research question | Capability introduced | Status |
 | --- | --- | --- | --- |
-| `v0.0` | Can we create a deterministic multimodal benchmark without obvious shortcut leakage? | Synthetic scene schema, renderer, question generation, provenance, audits | **FROZEN / RETAIN** |
-| `v0.1` | How much can the model solve from priors versus raw visual evidence? | QUESTION-only and RAW-image evaluation harness | **NEXT** |
+| `v0.0` | Can we create a deterministic multimodal benchmark without obvious shortcut leakage? | Synthetic scene schema, renderer, question generation, provenance, audits | **PRESERVED / CONFLICT INVALIDATED** |
+| `v0.0.1` | Can we remove the conflict-rule shortcut without changing the research question? | Constant rule, image-dependent 3-way conflict verdicts, leakage guards | **VALIDATED / QUESTION RERUN NEXT** |
+| `v0.1` | How much can the model solve from priors versus raw visual evidence? | QUESTION-only and RAW-image evaluation harness | **IN PROGRESS** |
 | `v0.2` | How much failure comes from perception versus reasoning? | Oracle structured visual state | Planned |
 | `v0.3` | Can explicit perception close the oracle gap? | Extracted structured evidence | Planned |
 | `v0.4` | Does retaining both pixels and structure improve robustness? | RAW + STRUCTURED hybrid path | Planned |
@@ -103,7 +145,8 @@ Family-specific participant payloads are intentionally separated so irrelevant e
 - `DETECTIVELAB_PROJECT.md`: project charter, computational guardrails, and anti-drift rules
 - `src/detectivelab/`: domain schema, deterministic generation, rendering, export, and validation code
 - `tests/`: offline regression coverage for the frozen benchmark machinery
-- `artifacts/benchmark_v0_0/`: frozen benchmark, provenance, audit metadata, and blind-audit artifacts
+- `artifacts/benchmark_v0_0/`: preserved original benchmark; conflict family invalidated after leakage detection
+- `artifacts/benchmark_v0_0_1/`: corrected benchmark used for the next evaluation gate
 - `pyproject.toml`: packaging and development dependency configuration
 
 ## Running Locally
@@ -128,10 +171,10 @@ After the virtual environment has been created once, future sessions only need:
 source .venv/bin/activate
 ```
 
-The frozen `v0.0` repository should currently report:
+The current branch should report:
 
 ```text
-34 passed
+41 passed
 ```
 
 ## Reproducing the Frozen Benchmark Checks
@@ -139,14 +182,14 @@ The frozen `v0.0` repository should currently report:
 Run the benchmark integrity and metadata check with:
 
 ```bash
-python -m detectivelab.validate artifacts/benchmark_v0_0
+python -m detectivelab.validate artifacts/benchmark_v0_0_1
 ```
 
 A healthy frozen benchmark reports:
 
 ```text
-Benchmark: artifacts/benchmark_v0_0
-Version: v0.0
+Benchmark: artifacts/benchmark_v0_0_1
+Version: v0.0.1
 Scenes: 10
 Items: 30
 Required files: PASS
@@ -158,8 +201,8 @@ Status: PASS
 You can also inspect the frozen metadata directly:
 
 ```bash
-cat artifacts/benchmark_v0_0/AUDIT.json
-cat artifacts/benchmark_v0_0/manifest.json
+cat artifacts/benchmark_v0_0_1/AUDIT.json
+cat artifacts/benchmark_v0_0_1/manifest.json
 ```
 
 Each scene directory contains:
@@ -202,7 +245,7 @@ In short, DetectiveLab currently suggests that multimodal architecture experimen
 
 ## Future Research
 
-- establish QUESTION-only and RAW-image baselines on the frozen `v0.0` benchmark
+- rerun the QUESTION-only baseline on corrected `v0.0.1`; run RAW only after the conflict shortcut gate passes
 - compare RAW inference with oracle structured evidence to separate perception from reasoning error
 - introduce explicit visual extraction only after the oracle gap is measured
 - test whether hybrid RAW + STRUCTURED evidence improves conflict handling or merely adds redundancy
@@ -214,4 +257,4 @@ In short, DetectiveLab currently suggests that multimodal architecture experimen
 
 Any later change to scene semantics, rendering conventions, participant payload composition, labels, or benchmark-generation behavior requires a **new benchmark version**.
 
-Do not modify `v0.0` to accommodate model behavior during `v0.1-direct`.
+Do not rewrite `v0.0`. Benchmark corrections require a new version; `v0.0.1` is the first such correction.

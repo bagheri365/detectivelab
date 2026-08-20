@@ -81,27 +81,26 @@ def _generate_spatial(scene: Scene) -> BenchmarkItem:
 def _generate_state(scene: Scene) -> BenchmarkItem:
     """Generate a balanced yes/no question about an observable object state.
 
-    v0.0 deliberately uses the conflict anchor as the state target because its
-    witness statement already contains a mechanically valid alternative state.
-    The evaluator must *not* expose witness testimony for STATE-family items.
+    v0.0.1 intentionally decouples STATE from witness testimony so conflict
+    construction cannot leak or constrain the state-family label.
     """
 
-    if not scene.witness_statements:
-        raise ValueError("state question generation requires the conflict anchor")
-    statement = scene.witness_statements[0]
-    if statement.subject_id is None or statement.predicate != "state":
-        raise ValueError("v0.0 state questions require state testimony about an object")
+    state_objects = [obj for obj in scene.objects if obj.state is not None]
+    if not state_objects:
+        raise ValueError("state question generation requires a state-bearing object")
+    target = state_objects[0]
 
-    target = scene.object_by_id(statement.subject_id)
-    if target.state is None:
-        raise ValueError("state question target must carry an observable state")
-    if statement.value == target.state:
-        raise ValueError("state question requires a distinct alternative state")
+    alternatives = {
+        "open": "closed",
+        "closed": "open",
+        "intact": "broken",
+        "broken": "intact",
+    }
+    if target.state not in alternatives:
+        raise ValueError(f"unsupported observable state: {target.state}")
 
-    # Gray-code parity gives a deterministic 5/5 yes/no split for seeds 0..9
-    # without simply mirroring the spatial seed-parity pattern.
     ask_true_state = ((scene.seed ^ (scene.seed >> 1)) & 1) == 0
-    asked_state = str(target.state if ask_true_state else statement.value)
+    asked_state = str(target.state if ask_true_state else alternatives[target.state])
     answer = "yes" if ask_true_state else "no"
 
     return BenchmarkItem(
@@ -126,33 +125,35 @@ def _generate_conflict(scene: Scene) -> BenchmarkItem:
         raise ValueError("conflict question generation requires an evidence rule")
 
     statement = scene.witness_statements[0]
-    if statement.subject_id is None or statement.predicate != "state":
-        raise ValueError("v0.0 conflict questions require state testimony about an object")
+    rule = scene.rules[0]
+    if statement.predicate != "state":
+        raise ValueError("v0.0.1 conflict questions require state testimony")
+    if rule.evidence_priority != EvidencePriority.PHYSICAL_OVER_TESTIMONY:
+        raise ValueError("v0.0.1 uses one constant physical-over-testimony rule")
 
-    target = scene.object_by_id(statement.subject_id)
-    if target.state is None:
-        raise ValueError("conflict testimony must target a state-bearing object")
-
-    physical_conflict = statement.value != target.state
-    physical_priority = any(
-        rule.evidence_priority == EvidencePriority.PHYSICAL_OVER_TESTIMONY
-        for rule in scene.rules
-    )
-
-    if physical_conflict and physical_priority:
-        answer = "contradicted"
+    evidence_ids = [statement.statement_id, rule.rule_id]
+    if statement.subject_id is None:
+        answer = "unknown"
         rationale = (
-            f"The witness claims state={statement.value}, while physical evidence "
-            f"records state={target.state}; the case rule prioritizes physical evidence."
-        )
-    elif not physical_conflict:
-        answer = "supported"
-        rationale = (
-            f"The witness claim state={statement.value} matches physical state={target.state}."
+            "The testimony names an object-state claim that the current scene does not "
+            "contain, so the physical evidence cannot resolve the claim."
         )
     else:
-        answer = "unknown"
-        rationale = "The sources disagree and no applicable evidence-priority rule resolves them."
+        target = scene.object_by_id(statement.subject_id)
+        if target.state is None:
+            raise ValueError("conflict testimony must target a state-bearing object")
+        evidence_ids.append(target.object_id)
+        if statement.value == target.state:
+            answer = "supported"
+            rationale = (
+                f"The witness claim state={statement.value} matches physical state={target.state}."
+            )
+        else:
+            answer = "contradicted"
+            rationale = (
+                f"The witness claims state={statement.value}, while physical evidence "
+                f"records state={target.state}; the constant case rule prioritizes physical evidence."
+            )
 
     return BenchmarkItem(
         item_id=f"{scene.scene_id}__conflict",
@@ -164,7 +165,7 @@ def _generate_conflict(scene: Scene) -> BenchmarkItem:
         ),
         answer=answer,
         answer_type="evidence_verdict",
-        evidence_ids=(statement.statement_id, statement.subject_id, *[r.rule_id for r in scene.rules]),
+        evidence_ids=tuple(evidence_ids),
         rationale=rationale,
     )
 

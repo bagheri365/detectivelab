@@ -949,3 +949,17 @@ All four are valid research outcomes.
 ## v0.0 freeze rule
 
 The 10-scene / 30-item `v0.0` benchmark is frozen after final blind audit. Do not modify its scene semantics, renderer conventions, participant payloads, labels, or scoring in place. Any such change requires a new benchmark version and a new audit trail.
+
+## v0.0.1 benchmark correction rule
+
+The first QUESTION-only model run revealed that `v0.0` conflict labels were predictable from case-rule wording. `v0.0` remains preserved for provenance and must not be rewritten.
+
+`v0.0.1` is the corrected benchmark version. Its conflict family must satisfy all of the following before RAW evaluation:
+
+- every conflict item uses identical case-rule text;
+- supported, contradicted, and unknown outcomes all occur in the frozen slice;
+- STATE question generation is independent of conflict testimony;
+- a conflict verdict must depend on visual evidence availability or visible state, not policy wording;
+- the QUESTION-only conflict baseline must no longer reproduce the `v0.0` 100% shortcut result.
+
+If the corrected QUESTION-only baseline remains materially above chance, stop and audit again before adding image inference.

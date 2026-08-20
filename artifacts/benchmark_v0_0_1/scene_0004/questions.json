@@ -1,0 +1,44 @@
+[
+  {
+    "answer": "yes",
+    "answer_type": "yes_no",
+    "evidence_ids": [
+      "chair_5",
+      "clock_2"
+    ],
+    "family": "spatial",
+    "item_id": "scene_0004__spatial",
+    "question": "Is the white chair left of the red clock?",
+    "rationale": "The canonical scene relation records chair_5 as left_of clock_2.",
+    "scene_id": "scene_0004",
+    "schema_version": "0.1"
+  },
+  {
+    "answer": "yes",
+    "answer_type": "yes_no",
+    "evidence_ids": [
+      "door_1"
+    ],
+    "family": "state",
+    "item_id": "scene_0004__state",
+    "question": "Is the green door currently open?",
+    "rationale": "The hidden scene state records door_1.state=open; the question asks whether it is open.",
+    "scene_id": "scene_0004",
+    "schema_version": "0.1"
+  },
+  {
+    "answer": "supported",
+    "answer_type": "evidence_verdict",
+    "evidence_ids": [
+      "stmt_1",
+      "rule_1",
+      "door_1"
+    ],
+    "family": "conflict",
+    "item_id": "scene_0004__conflict",
+    "question": "Given the current physical scene, witness testimony, and case rule, is the testimony supported, contradicted, or unknown?",
+    "rationale": "The witness claim state=open matches physical state=open.",
+    "scene_id": "scene_0004",
+    "schema_version": "0.1"
+  }
+]
