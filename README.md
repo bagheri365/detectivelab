@@ -7,13 +7,13 @@ Evidence before complexity is the project rule: freeze the benchmark, add one ca
 ## At a Glance
 
 - **Research question:** when multimodal evidence conflicts, should an AI reason from raw perception, structured observations, or both?
-- **Current milestone:** `v0.4-epistemic-robustness` is **COMPLETE**.
+- **Current milestone:** `v0.5-conditional-epistemic` is **COMPLETE**.
 - **Current benchmark:** `v0.0.1`, with 10 deterministic scenes, 30 total items, and three case families: spatial, state, and conflict.
-- **Best current result:** the explicit epistemic policy reaches **100%** on Gemma across canonical conflict, paraphrase robustness, and controlled case variation; however, Qwen shows model-specific regressions under the same intervention.
+- **Best current result:** `CONFLICT_EXTRACTOR_GATED` reaches **100% canonical conflict accuracy on both Gemma and Qwen**, while remaining at **100% on Gemma robustness slices**, **100% on Qwen case variation**, and **96.7% on Qwen paraphrases**.
 - **Key finding:** task-relevant image-derived structure can match oracle performance, while dense correct structure can materially degrade reasoning.
-- **Key v0.4 finding:** the missing-evidence rule is highly effective for Gemma but not universally beneficial; on Qwen it improves `unknown` handling while sometimes introducing contradiction-to-support errors.
+- **Key v0.5 finding:** gate location matters. A standalone LLM existence gate introduced false-absence errors, while an extractor-derived presence gate preserved the unknown-case benefit without perturbing present-target reasoning.
 - **Compute constraint:** the reference benchmark and evaluation workflow must remain runnable on a consumer Mac CPU without required model training.
-- **Next experiment:** test whether the epistemic rule can be applied conditionally only after `EXISTENCE: absent`, preserving its benefit while avoiding collateral regressions on present-target cases.
+- **Next experiment:** corrupt the extractor-derived gate signal in controlled ways to measure how brittle representation-grounded control becomes when structured evidence is imperfect.
 - **Project charter:** see [`DETECTIVELAB_PROJECT.md`](./DETECTIVELAB_PROJECT.md).
 
 ## Why This Project Exists
@@ -156,6 +156,89 @@ The resulting conclusion is:
 
 See [`docs/results/v0_4_epistemic_robustness.md`](./docs/results/v0_4_epistemic_robustness.md).
 
+
+## v0.5 Conditional Epistemic Gating
+
+`v0.5-conditional-epistemic` tests whether the missing-evidence rule can be applied only when absence is detected, avoiding the cross-model collateral effects of a globally applied epistemic prompt.
+
+Four policies are compared:
+
+| Policy | Control mechanism |
+| --- | --- |
+| `CONFLICT_STAGED` | no explicit missing-evidence rule |
+| `CONFLICT_EPISTEMIC` | global explicit epistemic rule |
+| `CONFLICT_CONDITIONAL` | standalone LLM existence gate |
+| `CONFLICT_EXTRACTOR_GATED` | presence gate from existing image-derived structured evidence |
+
+### Canonical conflict
+
+| Model | Staged | Global epistemic | LLM-gated | Extractor-gated |
+| --- | ---: | ---: | ---: | ---: |
+| Gemma 3 4B | 70.0% | **100.0%** | 70.0% | **100.0%** |
+| Qwen3 4B Instruct | **100.0%** | 90.0% | 70.0% | **100.0%** |
+
+The standalone LLM gate failed in a highly diagnostic way. On both models, it falsely classified the same present contradicted targets as absent, forcing `unknown` verdicts that neither the staged nor global epistemic condition made.
+
+A direct audit found:
+
+```text
+Gemma conditional:
+  accuracy: 7/10
+  conditional-only failures: 3
+
+Qwen conditional:
+  accuracy: 7/10
+  conditional-only failures: 3
+
+wrong in all three baselines: 0
+```
+
+Every new canonical error came from the gate itself.
+
+### Extractor-gated result
+
+The final condition removes the standalone model gate and uses the presence signal already available from the validated image-derived extractor:
+
+```text
+image
+→ extracted target evidence
+→ target absent?
+   ├─ yes → not_applicable → unknown → unknown
+   └─ no  → unchanged staged reasoning
+```
+
+This restores the best canonical result for both models:
+
+```text
+Gemma: 10/10
+Qwen:  10/10
+```
+
+### Robustness
+
+| Model | Slice | Extractor-gated |
+| --- | --- | ---: |
+| Gemma | canonical | **100.0%** |
+| Gemma | paraphrases | **100.0%** |
+| Gemma | case variation | **100.0%** |
+| Qwen | canonical | **100.0%** |
+| Qwen | paraphrases | **96.7%** |
+| Qwen | case variation | **100.0%** |
+
+Across these slices:
+
+- `unknown` remains at 100%
+- `supported` remains at 100%
+- the only remaining miss is one Qwen paraphrase contradicted case
+
+Because extractor gating does not modify present-target reasoning, that remaining miss is best treated as a normal reasoning error rather than a gating failure.
+
+The main `v0.5` result is:
+
+> **When a control decision depends on a fact already available in structured evidence, use that fact directly rather than asking the reasoner to re-infer it.**
+
+See [`docs/results/v0_5_conditional_epistemic.md`](./docs/results/v0_5_conditional_epistemic.md).
+
 ### State
 
 State accuracy progresses:
@@ -289,7 +372,7 @@ The focused formatter may use participant-facing task text to select relevant ex
 
 ## Research Evolution
 
-> benchmark -> direct perception -> oracle structure -> extracted structure -> focused representation -> conflict arbitration -> epistemic robustness -> conditional policy control -> hybrid / routing only if justified
+> benchmark -> direct perception -> oracle structure -> extracted structure -> focused representation -> conflict arbitration -> epistemic robustness -> representation-grounded control -> controlled corruption -> hybrid / routing only if justified
 >
 > evidence before complexity
 
@@ -301,7 +384,8 @@ The focused formatter may use participant-facing task text to select relevant ex
 | `v0.2-extracted-structure` | Can explicit image-derived structure recover the oracle gap? | Dense and focused image-only structured evidence | **COMPLETE** |
 | `v0.3-conflict-arbitration` | Why does conflict remain below ceiling after perception is controlled? | Staged reasoning + explicit epistemic policy | **COMPLETE** |
 | `v0.4-epistemic-robustness` | Does the epistemic policy survive wording, case, and model variation? | Paraphrase, case-variation, and second-model robustness checks | **COMPLETE** |
-| next | Can the epistemic rule be applied only when absence is detected? | Conditional policy application after the existence stage | **NEXT** |
+| `v0.5-conditional-epistemic` | Can missing-evidence policy be applied conditionally without collateral regressions? | LLM gate vs extractor-derived gate | **COMPLETE** |
+| next | How brittle is representation-grounded control when the gate signal is imperfect? | Controlled extraction/gate corruption | **NEXT** |
 | later | Does retaining both pixels and structure improve robustness? | RAW + STRUCTURED hybrid path | Conditional |
 | later | When does structured evidence become brittle? | Controlled evidence corruption | Conditional |
 | later | Do different case types justify different evidence paths? | Routing | Conditional |
@@ -327,6 +411,9 @@ The focused formatter may use participant-facing task text to select relevant ex
 - deterministic paraphrase robustness harness
 - image-only controlled case-variation harness
 - cross-model staged-vs-epistemic audit
+- conditional epistemic policy harness
+- LLM-gate failure audit
+- extractor-derived representation-grounded gate
 - automated leakage and hidden-state access tests
 - manual and blind visual audits before freeze
 - explicit benchmark-version freeze rule
@@ -366,10 +453,10 @@ After the virtual environment has been created once, future sessions only need:
 source .venv/bin/activate
 ```
 
-The current `v0.4-epistemic-robustness` branch should report:
+The current `v0.5-conditional-epistemic` branch should report:
 
 ```text
-75 passed
+85 passed
 ```
 
 ## Reproducing the Benchmark Checks
@@ -475,6 +562,32 @@ qwen3:4b-instruct-2507-q4_K_M
 
 to reproduce the second-model comparison.
 
+CONFLICT_CONDITIONAL:
+
+```bash
+python -m detectivelab.cli.evaluate \
+  --benchmark artifacts/benchmark_v0_0_1 \
+  --condition CONFLICT_CONDITIONAL \
+  --adapter ollama \
+  --model gemma3:4b \
+  --num-predict 128 \
+  --output artifacts/evaluation/v0_5_conflict_conditional_gemma3_4b.jsonl
+```
+
+CONFLICT_EXTRACTOR_GATED:
+
+```bash
+python -m detectivelab.cli.evaluate \
+  --benchmark artifacts/benchmark_v0_0_1 \
+  --condition CONFLICT_EXTRACTOR_GATED \
+  --adapter ollama \
+  --model gemma3:4b \
+  --num-predict 128 \
+  --output artifacts/evaluation/v0_5_conflict_extractor_gated_gemma3_4b.jsonl
+```
+
+The same condition can be run with `qwen3:4b-instruct-2507-q4_K_M` for the cross-model comparison.
+
 Current deterministic defaults:
 
 - temperature: `0.0`
@@ -517,6 +630,18 @@ python scripts/audit_epistemic_model_effect.py \
   --case-epistemic artifacts/evaluation/v0_4_case_variation_epistemic_qwen3_4b.jsonl
 ```
 
+Conditional-gate audit:
+
+```bash
+python scripts/audit_conditional_gate.py \
+  --gemma-conditional artifacts/evaluation/v0_5_conflict_conditional_gemma3_4b.jsonl \
+  --gemma-staged artifacts/evaluation/v0_3_conflict_staged_semantic_gemma3_4b.jsonl \
+  --gemma-epistemic artifacts/evaluation/v0_3_conflict_epistemic_gemma3_4b.jsonl \
+  --qwen-conditional artifacts/evaluation/v0_5_conflict_conditional_qwen3_4b.jsonl \
+  --qwen-staged artifacts/evaluation/v0_4_conflict_staged_qwen3_4b.jsonl \
+  --qwen-epistemic artifacts/evaluation/v0_4_conflict_epistemic_qwen3_4b.jsonl
+```
+
 These scripts exist to diagnose measured failures. They are not separate benchmark conditions.
 
 ## Limitations
@@ -532,6 +657,7 @@ These scripts exist to diagnose measured failures. They are not separate benchma
 - `EXTRACTED_FOCUSED` uses task text to select relevant extracted facts; this is deliberate and should be distinguished from blind scene summarization.
 - `CONFLICT_EPISTEMIC` encodes the benchmark's missing-evidence policy explicitly; its 100% Gemma result is a controlled mechanism result, not evidence of broad uncertainty calibration.
 - Cross-model results show that the same explicit rule can introduce regressions on a model with a different native error profile.
+- `CONFLICT_EXTRACTOR_GATED` depends on a highly reliable synthetic extractor; its success does not yet establish robustness to imperfect gate signals.
 
 ## What the Current Evidence Suggests
 
@@ -546,6 +672,8 @@ The project currently supports several methodological lessons:
 - perception can be fully controlled while evidence arbitration remains difficult
 - missing evidence and contradictory evidence are distinct epistemic states, and some models may need that distinction made explicit
 - reasoning interventions can be model-specific: a policy that fixes one model can degrade another
+- control decisions can become new bottlenecks when delegated to a separate model call
+- when a reliable structured fact already exists, representation-grounded control can be simpler and more reliable than re-inference
 - model complexity should only be added after the previous experiment identifies a measured bottleneck
 
 In short:
@@ -554,32 +682,24 @@ In short:
 
 ## Next Milestone
 
-### Conditional epistemic policy application
+### Controlled gate-signal corruption
 
-`v0.4-epistemic-robustness` is complete.
+`v0.5-conditional-epistemic` is complete.
 
 The next research question is:
 
-> Can the missing-evidence rule be applied only after the system has already determined that the target is absent?
+> How brittle is representation-grounded control when the structured gate signal is imperfect?
 
-This is motivated directly by the cross-model result.
+The `v0.5` success depends on the extractor's target-presence signal being reliable. The next experiment should perturb that assumption directly with controlled corruption such as:
 
-The current global epistemic prompt helps Gemma substantially, but on Qwen it can alter present-target contradiction judgments that the rule was never intended to govern.
+1. false target absence
+2. false target presence
+3. state corruption
+4. optional confidence or abstention thresholds
 
-The next experiment should therefore keep the staged decomposition but apply the uncertainty rule only when:
+The purpose is not to make the benchmark more realistic for its own sake. It is to measure how gate errors propagate into policy selection and final verdicts.
 
-```text
-EXISTENCE = absent
-```
-
-The goal is to test whether a deterministic stage gate can:
-
-1. preserve the unknown-case benefit
-2. avoid changing present-target supported/contradicted reasoning
-3. reduce the Qwen contradiction-to-support regression
-4. remain simple enough to justify before any routing or learned control
-
-No learned router, hybrid RAW+STRUCTURED path, fine-tuning, or larger orchestration should be added yet.
+No learned router should be introduced yet. First measure whether the simple evidence-derived gate remains preferable once the evidence itself can be wrong.
 
 ## Freeze Rule
 
