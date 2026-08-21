@@ -27,6 +27,7 @@ Before adding routing, learned confidence, fine-tuning, or larger architectures,
 - **Current test suite:** `125 passed`
 - **Final milestone commit:** `a4bb9e7`
 - **Milestone tags:** `v0.0` through `v0.10`
+- **Suggested README visual:** `docs/figures/benchmark_example_scene_0002.png`
 - **Frozen benchmark:** `artifacts/benchmark_v0_0_1`
 - **Primary local models:**
   - `gemma3:4b`
@@ -56,6 +57,23 @@ Final research conclusion:
 
 `v0.10` found that broader interpretable risk signals increased failure coverage, but all higher-compute escalation policies reduced downstream accuracy on the tested degradation set. The limiting factor was therefore not only risk detection, but fallback quality.
 
+
+---
+
+
+## Quick Reader Guide
+
+If you only read one minute of this README, the core story is:
+
+- `v0.1` showed that **perception bottlenecks can look like reasoning failures**.
+- `v0.2` showed that **focused structured evidence beats dense correct structure**.
+- `v0.3` and `v0.4` showed that **conflict reasoning depends on epistemic policy, and the best policy can be model-dependent**.
+- `v0.5` through `v0.8` showed that **control works best when grounded in reliable extracted evidence rather than re-inference**.
+- `v0.9` and `v0.10` showed that **risk detection alone is not enough; escalation is only useful when the fallback path has positive expected value**.
+
+One-sentence project conclusion:
+
+> **Uncertainty is useful only when escalation has positive expected value.**
 
 ---
 
@@ -117,6 +135,38 @@ No routing model has yet been justified by the evidence.
 ---
 
 # Benchmark
+
+
+## One Real Benchmark Example
+
+The figure below uses an **actual repo example** rather than a stylized mockup.
+It is meant to help quick readers understand what one benchmark item looks like.
+
+![Real benchmark example from `scene_0002`](docs/figures/benchmark_example_scene_0002.png)
+
+**What this example shows**
+
+- Scene: `scene_0002`
+- Family: `conflict`
+- Target: `blue window`
+- Physical evidence: the blue window is **present** and **closed**
+- Witness testimony: the witness says the blue window is **currently open**
+- Rule: **current physical evidence overrides unverified witness testimony**
+- Gold label: **contradicted**
+
+This single example captures the full research pattern behind DetectiveLab:
+
+```text
+scene image
+→ focused evidence extraction
+→ compare physical evidence with testimony
+→ apply an explicit conflict policy
+→ emit the final verdict
+```
+
+Readers who understand this example will understand the core benchmark design.
+
+---
 
 ## Frozen corrected benchmark: `v0.0.1`
 
@@ -1958,6 +2008,12 @@ A surprising result should be decomposed before adding a new component.
 ### Do not add learned routing without evidence
 
 Learned routing remains unsupported by the completed evidence and is not part of the final architecture.
+
+### Keep visuals faithful to the benchmark
+
+If a README figure is included, prefer a **real benchmark example from the repository** over decorative diagrams.
+For this project, a single grounded example image is more informative than multiple conceptual graphics.
+
 
 ---
 
