@@ -13,10 +13,11 @@ from detectivelab.extraction import extract_structured_evidence
 from .focused import build_focused_extracted_evidence
 from .records import PredictionRecord
 from .scoring import is_correct, normalize_prediction
+from .staged import build_conflict_epistemic_prompt, build_conflict_staged_prompt, parse_conflict_stages
 from .structured import build_structured_evidence
 
 
-VALID_CONDITIONS = {"QUESTION", "RAW", "ORACLE_STRUCTURED", "EXTRACTED_STRUCTURED", "EXTRACTED_FOCUSED"}
+VALID_CONDITIONS = {"QUESTION", "RAW", "ORACLE_STRUCTURED", "EXTRACTED_STRUCTURED", "EXTRACTED_FOCUSED", "CONFLICT_STAGED", "CONFLICT_EPISTEMIC"}
 
 
 @dataclass(frozen=True)
@@ -107,6 +108,9 @@ def run_evaluation(
 
     with output_path.open("a", encoding="utf-8") as stream:
         for case_dir, payload, gold_item in _iter_items(benchmark_dir):
+            if condition in {"CONFLICT_STAGED", "CONFLICT_EPISTEMIC"} and payload["family"] != "conflict":
+                continue
+
             resume_key = (payload["item_id"], condition, adapter.name)
             if resume_key in completed:
                 skipped += 1
@@ -125,18 +129,34 @@ def run_evaluation(
                     payload=payload,
                 )
 
+            prompt = _build_prompt(payload, structured_evidence)
+            if condition == "CONFLICT_STAGED":
+                prompt = build_conflict_staged_prompt(
+                    image_path=case_dir / "scene.png",
+                    payload=payload,
+                )
+            elif condition == "CONFLICT_EPISTEMIC":
+                prompt = build_conflict_epistemic_prompt(
+                    image_path=case_dir / "scene.png",
+                    payload=payload,
+                )
+
             request = AdapterRequest(
                 item_id=payload["item_id"],
                 family=payload["family"],
                 answer_type=payload["answer_type"],
-                prompt=_build_prompt(payload, structured_evidence),
+                prompt=prompt,
                 image_path=image_path,
             )
 
             start = time.perf_counter()
             raw_output = adapter.predict(request)
             latency_ms = (time.perf_counter() - start) * 1000.0
-            prediction = normalize_prediction(raw_output, payload["answer_type"])
+            if condition in {"CONFLICT_STAGED", "CONFLICT_EPISTEMIC"}:
+                stages = parse_conflict_stages(raw_output)
+                prediction = stages.verdict if stages is not None else "invalid"
+            else:
+                prediction = normalize_prediction(raw_output, payload["answer_type"])
             gold = gold_item["answer"].strip().lower()
 
             record = PredictionRecord(
