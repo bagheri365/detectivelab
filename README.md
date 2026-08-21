@@ -4,12 +4,13 @@
 
 DetectiveLab is a research-first repository built around a deliberately small synthetic benchmark. The goal is not to maximize benchmark accuracy as quickly as possible. The goal is to isolate *why* a multimodal system succeeds or fails by changing one capability at a time.
 
-The project currently studies four linked questions:
+The completed research arc studies five linked questions:
 
 1. **Perception:** can the model recover the relevant evidence from an image?
 2. **Representation:** should that evidence remain raw, become dense structure, or become focused structure?
 3. **Epistemic policy:** how should the system reason when physical evidence and testimony conflict?
 4. **Control:** when should the system trust a structured signal, abstain, or escalate to the language model?
+5. **Escalation value:** when a case is risky, is the fallback reasoner actually likely to improve the outcome?
 
 The guiding rule throughout the repository is:
 
@@ -24,29 +25,37 @@ Before adding routing, learned confidence, fine-tuning, or larger architectures,
 - **Current branch:** `v0.10-risk-operating-point`
 - **Current milestone:** `v0.10` complete — research complete
 - **Current test suite:** `125 passed`
+- **Final milestone commit:** `a4bb9e7`
+- **Milestone tags:** `v0.0` through `v0.10`
 - **Frozen benchmark:** `artifacts/benchmark_v0_0_1`
 - **Primary local models:**
   - `gemma3:4b`
   - `qwen3:4b-instruct-2507-q4_K_M`
-- **Current best canonical conflict result:** 100% on both models
+- **Best canonical conflict result:** 100% on both models
 - **Final operating-point result:** broader risk signals increase failure coverage, but every higher-compute policy is dominated on accuracy versus model-call cost
 
-The current architectural path is:
+The final architectural path studied is:
 
 ```text
 raw image
    ↓
 deterministic image-derived structure
    ↓
-calibrated evidence-stability gate
+evidence-risk signals
+   ↓
+control decision
    ├─ stable absent   → deterministic unknown
-   ├─ stable present  → staged reasoning
-   └─ uncertain       → staged reasoning
+   ├─ stable present  → staged reasoning when needed
+   └─ risky/uncertain → escalate only when fallback value is justified
 ```
 
-The strongest current finding is:
+
+Final research conclusion:
 
 > **Uncertainty is useful only when escalation has positive expected value.**
+
+`v0.10` found that broader interpretable risk signals increased failure coverage, but all higher-compute escalation policies reduced downstream accuracy on the tested degradation set. The limiting factor was therefore not only risk detection, but fallback quality.
+
 
 ---
 
@@ -67,7 +76,7 @@ If all of those are changed at once, a benchmark score says very little about th
 
 DetectiveLab instead treats the system like an experimental object.
 
-The benchmark is frozen. One intervention is added. The result is measured. Negative results are preserved. Only then does the next milestone begin.
+The benchmark is frozen. One intervention is added. The result is measured. Negative results are preserved. Only then is additional complexity considered.
 
 ---
 
@@ -916,8 +925,6 @@ Branch:
 
 ```text
 v0.8-evidence-uncertainty
-v0.9-uncertainty-prediction
-v0.10-risk-operating-point
 ```
 
 Research question:
@@ -1117,7 +1124,6 @@ Branch:
 
 ```text
 v0.9-uncertainty-prediction
-v0.10-risk-operating-point
 ```
 
 Research question:
@@ -1449,7 +1455,7 @@ accuracy        = 83.0%
 
 `STABILITY_ONLY` detects one additional failure but does not change the actual compute or accuracy operating point because the base gate already sends unstable cases to the reasoner.
 
-Every policy that increases model calls is dominated on the current accuracy-versus-compute objective.
+Every policy that increases model calls is dominated on the measured accuracy-versus-compute objective.
 
 ## Main finding
 
@@ -1578,7 +1584,19 @@ A learned router would therefore not yet solve the identified systems problem.
 
 Before routing could be justified, the system would first need a fallback whose recovery probability is demonstrably higher on the cases being escalated.
 
-For the current research scope, that is a natural stopping point.
+For this research scope, that is a natural stopping point.
+
+Audit:
+
+```text
+scripts/audit_risk_operating_point.py
+```
+
+Results:
+
+```text
+docs/results/v0_10_risk_operating_point.md
+```
 
 No `v0.11` milestone is planned.
 
@@ -1618,7 +1636,7 @@ Core lesson:
 
 # Current Architecture
 
-The current evidence/control pipeline is:
+The final evidence/control pipeline studied in this repository is:
 
 ```text
 scene.png
@@ -1812,7 +1830,7 @@ benchmark
 
 # What the Evidence Supports So Far
 
-The current benchmark supports the following conclusions.
+The completed benchmark study supports the following conclusions.
 
 ### 1. Apparent reasoning failures can originate in perception
 
@@ -1878,7 +1896,7 @@ The limiting factor is therefore not only whether risk can be detected, but whet
 
 # What the Evidence Does Not Yet Support
 
-DetectiveLab does **not** currently establish that:
+DetectiveLab does **not** establish that:
 
 - the synthetic extractor transfers to natural images;
 - perturbation stability is a calibrated probability;
@@ -1939,7 +1957,7 @@ A surprising result should be decomposed before adding a new component.
 
 ### Do not add learned routing without evidence
 
-Routing remains a hypothesis, not a default architecture.
+Learned routing remains unsupported by the completed evidence and is not part of the final architecture.
 
 ---
 
@@ -1976,10 +1994,16 @@ scripts/
 src/detectivelab/
   adapters/
   cli/
+    uncertainty_prediction.py
+    risk_operating_point.py
   evaluation/
+    uncertainty_prediction.py
+    risk_operating_point.py
   extraction/
 
 tests/
+  test_uncertainty_prediction.py
+  test_risk_operating_point.py
 ```
 
 Evaluation JSONL outputs are treated as experiment artifacts and are not required to be committed to Git.
@@ -1988,7 +2012,7 @@ Evaluation JSONL outputs are treated as experiment artifacts and are not require
 
 # Branch History
 
-Current milestone branches include:
+Milestone branches:
 
 ```text
 main
@@ -2007,14 +2031,33 @@ v0.10-risk-operating-point
 Selected milestone commits:
 
 ```text
-main                       9eb3a9c
-v0.1-direct                3adb657
-v0.2-extracted-structure   469ce47
-v0.3-conflict-arbitration  65c29af
-v0.4-epistemic-robustness  45c632c1
-v0.5 implementation        1c47060
-v0.5 README                35458c6
-v0.7 implementation        b2b82a4
+main                        9eb3a9c
+v0.1-direct                 3adb657
+v0.2-extracted-structure    469ce47
+v0.3-conflict-arbitration   65c29af
+v0.4-epistemic-robustness   45c632c1
+v0.5-conditional-epistemic  35458c6
+v0.6-gate-corruption        943cbff
+v0.7-abstaining-gate        b2b82a4
+v0.8-evidence-uncertainty   745d9cd
+v0.9-uncertainty-prediction fedc692
+v0.10-risk-operating-point  a4bb9e7
+```
+
+Milestone tags:
+
+```text
+v0.0
+v0.1
+v0.2
+v0.3
+v0.4
+v0.5
+v0.6
+v0.7
+v0.8
+v0.9
+v0.10
 ```
 
 ---
@@ -2027,7 +2070,7 @@ The experiments now support a broader systems view:
 
 > **Multimodal reliability depends not only on what evidence is available, but on how it is represented, how missing evidence is interpreted, where control decisions are made, which gate errors are allowed to suppress evidence, and whether uncertainty signals are themselves trustworthy, whether they predict failure under shift, and whether escalation can actually recover the cases they flag.**
 
-The current architecture remains deliberately simple:
+The final studied architecture remains deliberately simple:
 
 ```text
 extract
@@ -2042,6 +2085,6 @@ extract
 
 That simplicity is intentional.
 
-The current evidence does not require another milestone.
+The completed evidence does not require another milestone.
 
 The project stops at `v0.10`.
