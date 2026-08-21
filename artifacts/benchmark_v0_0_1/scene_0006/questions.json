@@ -1,0 +1,43 @@
+[
+  {
+    "answer": "yes",
+    "answer_type": "yes_no",
+    "evidence_ids": [
+      "clock_3",
+      "key_4"
+    ],
+    "family": "spatial",
+    "item_id": "scene_0006__spatial",
+    "question": "Is the red clock left of the amber key?",
+    "rationale": "The canonical scene relation records clock_3 as left_of key_4.",
+    "scene_id": "scene_0006",
+    "schema_version": "0.1"
+  },
+  {
+    "answer": "no",
+    "answer_type": "yes_no",
+    "evidence_ids": [
+      "window_1"
+    ],
+    "family": "state",
+    "item_id": "scene_0006__state",
+    "question": "Is the green window currently open?",
+    "rationale": "The hidden scene state records window_1.state=closed; the question asks whether it is open.",
+    "scene_id": "scene_0006",
+    "schema_version": "0.1"
+  },
+  {
+    "answer": "unknown",
+    "answer_type": "evidence_verdict",
+    "evidence_ids": [
+      "stmt_1",
+      "rule_1"
+    ],
+    "family": "conflict",
+    "item_id": "scene_0006__conflict",
+    "question": "Given the current physical scene, witness testimony, and case rule, is the testimony supported, contradicted, or unknown?",
+    "rationale": "The testimony names an object-state claim that the current scene does not contain, so the physical evidence cannot resolve the claim.",
+    "scene_id": "scene_0006",
+    "schema_version": "0.1"
+  }
+]

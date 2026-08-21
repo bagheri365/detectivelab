@@ -1,4 +1,4 @@
-from detectivelab.domain.schema import CaseFamily
+from detectivelab.domain.schema import CaseFamily, EvidencePriority
 from detectivelab.generation.questions import generate_questions
 from detectivelab.generation.scenes import generate_scene
 
@@ -37,17 +37,29 @@ def test_state_answer_is_balanced_binary_proposition() -> None:
     assert answers.count("no") == 5
 
 
-def test_conflict_answer_depends_on_evidence_priority() -> None:
-    even_scene = generate_scene(8)
-    odd_scene = generate_scene(9)
-    even_conflict = generate_questions(even_scene)[2]
-    odd_conflict = generate_questions(odd_scene)[2]
-    for scene in (even_scene, odd_scene):
+def test_conflict_uses_constant_rule_and_three_image_dependent_outcomes() -> None:
+    scenes = [generate_scene(seed) for seed in range(10)]
+    rule_texts = {scene.rules[0].description for scene in scenes}
+    priorities = {scene.rules[0].evidence_priority for scene in scenes}
+    answers = [generate_questions(scene)[2].answer for scene in scenes]
+
+    assert len(rule_texts) == 1
+    assert priorities == {EvidencePriority.PHYSICAL_OVER_TESTIMONY}
+    assert answers.count("supported") == 3
+    assert answers.count("contradicted") == 3
+    assert answers.count("unknown") == 4
+
+    for scene, answer in zip(scenes, answers):
         statement = scene.witness_statements[0]
-        target = scene.object_by_id(statement.subject_id)
-        assert statement.value != target.state
-    assert even_conflict.answer == "contradicted"
-    assert odd_conflict.answer == "unknown"
+        if answer == "unknown":
+            assert statement.subject_id is None
+        else:
+            assert statement.subject_id is not None
+            target = scene.object_by_id(statement.subject_id)
+            if answer == "supported":
+                assert statement.value == target.state
+            else:
+                assert statement.value != target.state
 
 
 def test_question_ids_are_scene_scoped_and_unique() -> None:

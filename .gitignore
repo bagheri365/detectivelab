@@ -32,3 +32,6 @@ dist/
 .env
 .env.*
 !.env.example
+
+# Local evaluation outputs
+artifacts/evaluation/*.jsonl

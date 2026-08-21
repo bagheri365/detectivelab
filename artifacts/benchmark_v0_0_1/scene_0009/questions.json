@@ -1,0 +1,43 @@
+[
+  {
+    "answer": "no",
+    "answer_type": "yes_no",
+    "evidence_ids": [
+      "glass_1",
+      "briefcase_4"
+    ],
+    "family": "spatial",
+    "item_id": "scene_0009__spatial",
+    "question": "Is the black glass right of the white briefcase?",
+    "rationale": "The canonical scene relation records glass_1 as left_of briefcase_4.",
+    "scene_id": "scene_0009",
+    "schema_version": "0.1"
+  },
+  {
+    "answer": "no",
+    "answer_type": "yes_no",
+    "evidence_ids": [
+      "glass_1"
+    ],
+    "family": "state",
+    "item_id": "scene_0009__state",
+    "question": "Is the black glass currently broken?",
+    "rationale": "The hidden scene state records glass_1.state=intact; the question asks whether it is broken.",
+    "scene_id": "scene_0009",
+    "schema_version": "0.1"
+  },
+  {
+    "answer": "unknown",
+    "answer_type": "evidence_verdict",
+    "evidence_ids": [
+      "stmt_1",
+      "rule_1"
+    ],
+    "family": "conflict",
+    "item_id": "scene_0009__conflict",
+    "question": "Given the current physical scene, witness testimony, and case rule, is the testimony supported, contradicted, or unknown?",
+    "rationale": "The testimony names an object-state claim that the current scene does not contain, so the physical evidence cannot resolve the claim.",
+    "scene_id": "scene_0009",
+    "schema_version": "0.1"
+  }
+]

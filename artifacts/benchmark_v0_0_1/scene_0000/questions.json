@@ -1,0 +1,43 @@
+[
+  {
+    "answer": "yes",
+    "answer_type": "yes_no",
+    "evidence_ids": [
+      "clock_6",
+      "glass_1"
+    ],
+    "family": "spatial",
+    "item_id": "scene_0000__spatial",
+    "question": "Is the amber clock left of the red glass?",
+    "rationale": "The canonical scene relation records clock_6 as left_of glass_1.",
+    "scene_id": "scene_0000",
+    "schema_version": "0.1"
+  },
+  {
+    "answer": "yes",
+    "answer_type": "yes_no",
+    "evidence_ids": [
+      "glass_1"
+    ],
+    "family": "state",
+    "item_id": "scene_0000__state",
+    "question": "Is the red glass currently broken?",
+    "rationale": "The hidden scene state records glass_1.state=broken; the question asks whether it is broken.",
+    "scene_id": "scene_0000",
+    "schema_version": "0.1"
+  },
+  {
+    "answer": "unknown",
+    "answer_type": "evidence_verdict",
+    "evidence_ids": [
+      "stmt_1",
+      "rule_1"
+    ],
+    "family": "conflict",
+    "item_id": "scene_0000__conflict",
+    "question": "Given the current physical scene, witness testimony, and case rule, is the testimony supported, contradicted, or unknown?",
+    "rationale": "The testimony names an object-state claim that the current scene does not contain, so the physical evidence cannot resolve the claim.",
+    "scene_id": "scene_0000",
+    "schema_version": "0.1"
+  }
+]

@@ -41,7 +41,7 @@ def test_validator_passes_clean_export(tmp_path):
     assert report["scene_count"] == 10
     assert report["item_count"] == 30
     assert report["answer_counts"]["spatial"] == {"no": 5, "yes": 5}
-    assert report["answer_counts"]["conflict"] == {"contradicted": 5, "unknown": 5}
+    assert report["answer_counts"]["conflict"] == {"contradicted": 3, "supported": 3, "unknown": 4}
 
 
 def test_validator_catches_tampering(tmp_path):

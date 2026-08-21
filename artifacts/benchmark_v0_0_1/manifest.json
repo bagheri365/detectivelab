@@ -1,0 +1,100 @@
+{
+  "answer_counts": {
+    "conflict": {
+      "contradicted": 3,
+      "supported": 3,
+      "unknown": 4
+    },
+    "spatial": {
+      "no": 5,
+      "yes": 5
+    },
+    "state": {
+      "no": 5,
+      "yes": 5
+    }
+  },
+  "benchmark_version": "v0.0.1",
+  "canvas_size": 256,
+  "cases": [
+    {
+      "path": "scene_0000",
+      "provenance_sha256": "111f7fe6665a83595065b2b1c2f15fc92e441bb5e71a5f012aa2e159c547f64d",
+      "scene_id": "scene_0000",
+      "seed": 0
+    },
+    {
+      "path": "scene_0001",
+      "provenance_sha256": "1ebaad2cf8748d7e8c0de527d665132e2fce9bb4392bad84eeffc10c2c49d913",
+      "scene_id": "scene_0001",
+      "seed": 1
+    },
+    {
+      "path": "scene_0002",
+      "provenance_sha256": "1b2875102060ea9efa966bffe4fe77f29c291b2ac43945d4f450c806c75cf36e",
+      "scene_id": "scene_0002",
+      "seed": 2
+    },
+    {
+      "path": "scene_0003",
+      "provenance_sha256": "fabd27b9178e58b37b500ba847ac728a42b678501c29c4e940d183246558b153",
+      "scene_id": "scene_0003",
+      "seed": 3
+    },
+    {
+      "path": "scene_0004",
+      "provenance_sha256": "dafc252ddfbb205a5bffcf40c971723d4f2ffde7727a752c5462cb6cbbdea464",
+      "scene_id": "scene_0004",
+      "seed": 4
+    },
+    {
+      "path": "scene_0005",
+      "provenance_sha256": "84eab27fe600337a0f74f0e53b1c67c39641addaf7dfaacef8ed1e500accc427",
+      "scene_id": "scene_0005",
+      "seed": 5
+    },
+    {
+      "path": "scene_0006",
+      "provenance_sha256": "bfd0e45b33354acc82ead3eaf5315be076bf0ece97c5e40255422a6ea116442f",
+      "scene_id": "scene_0006",
+      "seed": 6
+    },
+    {
+      "path": "scene_0007",
+      "provenance_sha256": "1a104cdf96ada6c8667d02910f0154dadcf18a29649b5173bd5c0d8a931debbc",
+      "scene_id": "scene_0007",
+      "seed": 7
+    },
+    {
+      "path": "scene_0008",
+      "provenance_sha256": "e99cbf97af3726f62805f15a067c5668a157b7bac78eaf59acf64a63a5909165",
+      "scene_id": "scene_0008",
+      "seed": 8
+    },
+    {
+      "path": "scene_0009",
+      "provenance_sha256": "1fbbbefdd84125f38845740728f9ee5587cf9a58a9597bc70b086eeaafa1a277",
+      "scene_id": "scene_0009",
+      "seed": 9
+    }
+  ],
+  "family_counts": {
+    "conflict": 10,
+    "spatial": 10,
+    "state": 10
+  },
+  "item_count": 30,
+  "scene_count": 10,
+  "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+  ]
+}

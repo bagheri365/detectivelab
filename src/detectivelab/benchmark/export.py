@@ -1,4 +1,4 @@
-"""Deterministic benchmark export for DetectiveLab v0.0.
+"""Deterministic benchmark export for DetectiveLab v0.0.1.
 
 Exports one folder per scene with canonical hidden state, rendered PNG,
 three benchmark questions, and provenance hashes. A top-level manifest records
@@ -18,7 +18,7 @@ from detectivelab.generation.scenes import generate_scene
 from detectivelab.rendering.renderer import render_scene_bytes
 from detectivelab.benchmark.payloads import build_payload
 
-BENCHMARK_VERSION = "v0.0"
+BENCHMARK_VERSION = "v0.0.1"
 DEFAULT_CANVAS_SIZE = 256
 
 

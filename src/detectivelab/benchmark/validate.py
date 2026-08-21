@@ -34,6 +34,7 @@ def validate_benchmark(root: str | Path) -> dict[str, Any]:
         raise ValueError("manifest scene_count does not match cases")
 
     family_counts: Counter[str] = Counter()
+    conflict_rule_texts: set[str] = set()
     answer_counts: dict[str, Counter[str]] = {}
     item_ids: set[str] = set()
 
@@ -104,9 +105,11 @@ def validate_benchmark(root: str | Path) -> dict[str, Any]:
             raise ValueError(f"{case['scene_id']}: spatial payload leaks text evidence")
         if payload_by_family["state"].get("context") != []:
             raise ValueError(f"{case['scene_id']}: state payload leaks text evidence")
-        conflict_types = [entry.get("type") for entry in payload_by_family["conflict"].get("context", [])]
+        conflict_context = payload_by_family["conflict"].get("context", [])
+        conflict_types = [entry.get("type") for entry in conflict_context]
         if conflict_types != ["witness_testimony", "case_rule"]:
             raise ValueError(f"{case['scene_id']}: conflict payload is missing testimony or case rule")
+        conflict_rule_texts.add(conflict_context[1]["text"])
         if len(questions) != 3:
             raise ValueError(f"{case['scene_id']}: expected exactly 3 questions")
         families = {item["family"] for item in questions}
@@ -133,10 +136,16 @@ def validate_benchmark(root: str | Path) -> dict[str, Any]:
     if dict(sorted(family_counts.items())) != manifest.get("family_counts"):
         raise ValueError("manifest family_counts mismatch")
 
-    # v0.0 shortcut-leak checks: every family must have >=2 answer labels.
-    for family in ("spatial", "state", "conflict"):
+    # Shortcut-leak checks. Spatial/state remain balanced binary tasks. Conflict
+    # must expose all three verdicts while keeping rule wording constant so the
+    # QUESTION-only condition cannot infer the label from the policy text.
+    for family in ("spatial", "state"):
         if len(answer_counts.get(family, {})) < 2:
             raise ValueError(f"{family} labels are degenerate")
+    if set(answer_counts.get("conflict", {})) != {"supported", "contradicted", "unknown"}:
+        raise ValueError("conflict family must contain supported, contradicted, and unknown labels")
+    if len(conflict_rule_texts) != 1:
+        raise ValueError("conflict case_rule text must be identical across the benchmark")
 
     report = {
         "scene_count": len(cases),

@@ -1,0 +1,35 @@
+[
+  {
+    "answer_type": "yes_no",
+    "context": [],
+    "family": "spatial",
+    "item_id": "scene_0009__spatial",
+    "question": "Is the black glass right of the white briefcase?",
+    "scene_id": "scene_0009"
+  },
+  {
+    "answer_type": "yes_no",
+    "context": [],
+    "family": "state",
+    "item_id": "scene_0009__state",
+    "question": "Is the black glass currently broken?",
+    "scene_id": "scene_0009"
+  },
+  {
+    "answer_type": "evidence_verdict",
+    "context": [
+      {
+        "text": "The witness says the amber window is currently closed.",
+        "type": "witness_testimony"
+      },
+      {
+        "text": "Current physical evidence overrides unverified witness testimony.",
+        "type": "case_rule"
+      }
+    ],
+    "family": "conflict",
+    "item_id": "scene_0009__conflict",
+    "question": "Given the current physical scene, witness testimony, and case rule, is the testimony supported, contradicted, or unknown?",
+    "scene_id": "scene_0009"
+  }
+]
