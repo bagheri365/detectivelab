@@ -31,12 +31,12 @@ def _context_text(payload: dict, entry_type: str) -> str | None:
     return None
 
 
-def _base_staged_lines(*, image_path: Path, payload: dict) -> list[str]:
+def _base_staged_lines(*, image_path: Path, payload: dict, witness_override: str | None = None) -> list[str]:
     if payload.get("family") != "conflict":
         raise ValueError("staged conflict conditions only support conflict items")
 
     evidence = build_focused_extracted_evidence(image_path=image_path, payload=payload)
-    witness = _context_text(payload, "witness_testimony")
+    witness = witness_override if witness_override is not None else _context_text(payload, "witness_testimony")
     rule = _context_text(payload, "case_rule")
     if witness is None or rule is None:
         raise ValueError("Conflict payload requires witness testimony and case rule")
@@ -55,13 +55,13 @@ def _base_staged_lines(*, image_path: Path, payload: dict) -> list[str]:
     ]
 
 
-def build_conflict_staged_prompt(*, image_path: Path, payload: dict) -> str:
-    lines = _base_staged_lines(image_path=image_path, payload=payload)
+def build_conflict_staged_prompt(*, image_path: Path, payload: dict, witness_override: str | None = None) -> str:
+    lines = _base_staged_lines(image_path=image_path, payload=payload, witness_override=witness_override)
     lines.append("Use unknown when the claimed object is absent from the current physical evidence.")
     return "\n".join(lines)
 
 
-def build_conflict_epistemic_prompt(*, image_path: Path, payload: dict) -> str:
+def build_conflict_epistemic_prompt(*, image_path: Path, payload: dict, witness_override: str | None = None) -> str:
     """Build the explicit epistemic-rule ablation prompt.
 
     The representation and four-stage output schema are identical to
@@ -69,7 +69,7 @@ def build_conflict_epistemic_prompt(*, image_path: Path, payload: dict) -> str:
     distinguishes missing evidence from contradictory evidence.
     """
 
-    lines = _base_staged_lines(image_path=image_path, payload=payload)
+    lines = _base_staged_lines(image_path=image_path, payload=payload, witness_override=witness_override)
     lines.extend(
         [
             "Mandatory epistemic rule:",

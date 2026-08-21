@@ -100,9 +100,9 @@ def main() -> int:
     parser.add_argument("--results", type=Path, required=True)
     parser.add_argument(
         "--condition",
-        choices=("CONFLICT_STAGED", "CONFLICT_EPISTEMIC"),
+        choices=("CONFLICT_STAGED", "CONFLICT_EPISTEMIC", "CONFLICT_STAGED_PARAPHRASE", "CONFLICT_EPISTEMIC_PARAPHRASE"),
         default=None,
-        help="Optional condition filter. If omitted, audit both staged conflict conditions.",
+        help="Optional condition filter. If omitted, audit all staged conflict conditions.",
     )
     args = parser.parse_args()
 
@@ -111,7 +111,7 @@ def main() -> int:
         for line in args.results.read_text(encoding="utf-8").splitlines()
         if line.strip()
     ]
-    allowed_conditions = {"CONFLICT_STAGED", "CONFLICT_EPISTEMIC"}
+    allowed_conditions = {"CONFLICT_STAGED", "CONFLICT_EPISTEMIC", "CONFLICT_STAGED_PARAPHRASE", "CONFLICT_EPISTEMIC_PARAPHRASE"}
     if args.condition is not None:
         allowed_conditions = {args.condition}
     records = [r for r in records if r.get("condition") in allowed_conditions]
