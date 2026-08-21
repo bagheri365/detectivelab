@@ -21,15 +21,15 @@ Before adding routing, learned confidence, fine-tuning, or larger architectures,
 
 ## Status
 
-- **Current branch:** `v0.8-evidence-uncertainty`
-- **Current milestone:** `v0.8` complete
-- **Current test suite:** `114 passed`
+- **Current branch:** `v0.9-uncertainty-prediction`
+- **Current milestone:** `v0.9` complete
+- **Current test suite:** `120 passed`
 - **Frozen benchmark:** `artifacts/benchmark_v0_0_1`
 - **Primary local models:**
   - `gemma3:4b`
   - `qwen3:4b-instruct-2507-q4_K_M`
 - **Current best canonical conflict result:** 100% on both models
-- **Current calibrated uncertainty result:** 100% accuracy with 60% model-call rate and only 10% uncertainty-specific escalation
+- **Current uncertainty-prediction result:** event-level failure recall 35.7% and precision 71.4% across four controlled degradation families
 
 The current architectural path is:
 
@@ -46,7 +46,7 @@ calibrated evidence-stability gate
 
 The strongest current finding is:
 
-> **An evidence-derived abstention signal is useful only after the perturbation probes themselves are validated for extractor invariance.**
+> **Calibrated extractor instability is a useful localized fragility signal, but it is not a reliable general predictor of extraction failure under distribution shift.**
 
 ---
 
@@ -916,6 +916,7 @@ Branch:
 
 ```text
 v0.8-evidence-uncertainty
+v0.9-uncertainty-prediction
 ```
 
 Research question:
@@ -1029,6 +1030,7 @@ Audit script:
 
 ```text
 scripts/audit_perturbation_stability.py
+scripts/audit_uncertainty_prediction.py
 ```
 
 ---
@@ -1106,6 +1108,243 @@ docs/results/v0_8_evidence_uncertainty.md
 
 ---
 
+
+## v0.9 — Uncertainty Prediction
+
+Branch:
+
+```text
+v0.9-uncertainty-prediction
+```
+
+Research question:
+
+> **Does calibrated extractor instability predict actual extraction failure under controlled image degradation?**
+
+`v0.8` showed that a calibrated perturbation ensemble could identify localized clean-image instability. `v0.9` freezes that uncertainty rule and evaluates it prospectively under controlled degradation.
+
+No uncertainty probe is retuned on the `v0.9` degradation results.
+
+### Degradation families
+
+Four families are tested at five fixed severity levels each:
+
+```text
+blur
+downsample
+contrast
+occlusion
+```
+
+For every scene × severity, the harness records:
+
+- clean extractor presence
+- degraded extractor presence
+- whether extraction actually failed
+- calibrated uncertainty state
+- whether uncertainty fired
+- downstream verdict correctness
+- model-call count
+
+### Why event-level evaluation is required
+
+A pointwise classifier metric can penalize useful early warnings.
+
+Example:
+
+```text
+severity 1 → uncertainty warning
+severity 3 → extraction failure
+```
+
+Pointwise scoring treats the early warning as a false positive and the later failure as a false negative.
+
+For prospective monitoring, the more meaningful question is:
+
+> Did the first uncertainty warning occur before or at the first extraction failure?
+
+`v0.9` therefore reports both:
+
+1. pointwise detection metrics;
+2. event-level prospective warning metrics.
+
+### Blur
+
+50 records.
+
+```text
+Extraction failures: 4/50
+Uncertainty positives: 5/50
+
+Pointwise:
+  TP=1 FP=4 FN=3 TN=42
+  recall=25.0%
+  precision=20.0%
+
+Prospective event-level:
+  failing items=2
+  timely warnings=1
+  event recall=50.0%
+  event precision=33.3%
+
+Downstream accuracy=94.0%
+Model-call rate=54.0%
+```
+
+One clean-fragile case, `scene_0002`, warned before failure:
+
+```text
+uncertainty at blur 0.0
+failure at blur 0.8
+```
+
+But another failing case, `scene_0005`, failed at blur 1.6 without any warning.
+
+### Downsample
+
+50 records.
+
+```text
+Extraction failures: 4/50
+Uncertainty positives: 2/50
+
+Pointwise:
+  TP=0 FP=2 FN=4 TN=44
+  recall=0.0%
+  precision=0.0%
+
+Prospective event-level:
+  failing items=4
+  timely warnings=1
+  event recall=25.0%
+  event precision=100.0%
+
+Downstream accuracy=92.0%
+Model-call rate=52.0%
+```
+
+Three of four failing item trajectories receive no warning.
+
+### Contrast
+
+50 records.
+
+```text
+Extraction failures: 24/50
+Uncertainty positives: 1/50
+
+Pointwise:
+  TP=0 FP=1 FN=24 TN=25
+  recall=0.0%
+  precision=0.0%
+
+Prospective event-level:
+  failing items=6
+  timely warnings=1
+  event recall=16.7%
+  event precision=100.0%
+
+Downstream accuracy=52.0%
+Model-call rate=12.0%
+```
+
+Contrast is the strongest negative result in `v0.9`.
+
+The extractor fails frequently, but the fixed uncertainty signal almost never fires.
+
+### Occlusion
+
+50 records.
+
+```text
+Extraction failures: 3/50
+Uncertainty positives: 5/50
+
+Pointwise:
+  TP=0 FP=5 FN=3 TN=42
+  recall=0.0%
+  precision=0.0%
+
+Prospective event-level:
+  failing items=2
+  timely warnings=2
+  event recall=100.0%
+  event precision=100.0%
+
+Downstream accuracy=94.0%
+Model-call rate=54.0%
+```
+
+Occlusion is the strongest positive result.
+
+Both failing item trajectories receive warnings before failure.
+
+### Overall prospective result
+
+Across the four degradation families:
+
+```text
+failing item-family events = 14
+timely warnings            = 5
+missed failures            = 9
+event recall               = 35.7%
+event precision            = 71.4%
+```
+
+Overall pointwise detection:
+
+```text
+TP=1
+FP=12
+FN=34
+TN=153
+recall=2.9%
+precision=7.7%
+```
+
+The event-level metric is the more appropriate prospective measure, but the detector still misses most failures.
+
+### Finding
+
+> **Calibrated clean-image instability is not a reliable general predictor of extractor failure under distribution shift.**
+
+Its predictive value is degradation-specific:
+
+| Degradation | Event recall | Event precision |
+| --- | ---: | ---: |
+| blur | 50.0% | 33.3% |
+| downsample | 25.0% | 100.0% |
+| contrast | 16.7% | 100.0% |
+| occlusion | 100.0% | 100.0% |
+
+The strongest methodological lesson is:
+
+> **Uncertainty probes inherit assumptions about the failure modes they perturb.**
+
+The `v0.8` signal remains useful as a localized fragility indicator, but it should not be interpreted as a generic probability that extraction is correct.
+
+### Why the signal is not retuned here
+
+`v0.9` is a prospective validation milestone.
+
+Retuning the perturbation ensemble on these degradation outcomes would turn the evaluation set into a tuning set and weaken the result.
+
+The correct outcome is therefore to preserve the negative result.
+
+Audit:
+
+```text
+scripts/audit_uncertainty_prediction.py
+```
+
+Results:
+
+```text
+docs/results/v0_9_uncertainty_prediction.md
+```
+
+---
+
 # Results at a Glance
 
 ## Representation results
@@ -1132,6 +1371,7 @@ Core lesson:
 | standalone LLM gate | 70% | 70% | gate can become a new bottleneck |
 | extractor gate | **100%** | **100%** | reuse reliable structured facts directly |
 | calibrated uncertainty gate | **100%** | **100%** | calibrated instability supports evidence-grounded abstention |
+| v0.9 prospective prediction | 35.7% event recall | — | descriptive instability does not generalize to all failure modes |
 
 ---
 
@@ -1164,7 +1404,9 @@ presence stability across calibrated perturbations
 
 This architecture is intentionally not a learned router.
 
-The current evidence does not justify one.
+`v0.9` also shows that the current calibrated stability signal should be treated as a **localized fragility indicator**, not as a universal correctness probability.
+
+The current evidence does not justify learned routing yet.
 
 ---
 
@@ -1191,7 +1433,7 @@ python -m pytest
 Current expected result:
 
 ```text
-114 passed
+120 passed
 ```
 
 ---
@@ -1231,44 +1473,38 @@ No fine-tuning is required.
 
 ---
 
-# Running the Current v0.8 Experiment
+# Running the Current v0.9 Experiment
 
-Gemma:
+Example blur sweep:
 
 ```bash
-python -m detectivelab.cli.evidence_uncertainty \
+python -m detectivelab.cli.uncertainty_prediction \
   --benchmark artifacts/benchmark_v0_0_1 \
+  --degradation blur \
   --model gemma3:4b \
   --num-predict 128 \
-  --output artifacts/evaluation/v0_8_evidence_uncertainty_calibrated_gemma3_4b.jsonl
+  --output artifacts/evaluation/v0_9_uncertainty_blur_gemma3_4b.jsonl
 ```
 
-Qwen:
-
-```bash
-python -m detectivelab.cli.evidence_uncertainty \
-  --benchmark artifacts/benchmark_v0_0_1 \
-  --model qwen3:4b-instruct-2507-q4_K_M \
-  --num-predict 128 \
-  --output artifacts/evaluation/v0_8_evidence_uncertainty_calibrated_qwen3_4b.jsonl
-```
-
-Audit candidate perturbations:
-
-```bash
-python scripts/audit_perturbation_stability.py \
-  --benchmark artifacts/benchmark_v0_0_1
-```
-
-Expected calibrated gate shape:
+Repeat with:
 
 ```text
-Hard present: 5/10
-Hard absent:  4/10
-Uncertain:    1/10
-Model calls:  6/10
-Accuracy:     10/10
+downsample
+contrast
+occlusion
 ```
+
+Run the combined prospective audit:
+
+```bash
+python scripts/audit_uncertainty_prediction.py \
+  artifacts/evaluation/v0_9_uncertainty_blur_gemma3_4b.jsonl \
+  artifacts/evaluation/v0_9_uncertainty_downsample_gemma3_4b.jsonl \
+  artifacts/evaluation/v0_9_uncertainty_contrast_gemma3_4b.jsonl \
+  artifacts/evaluation/v0_9_uncertainty_occlusion_gemma3_4b.jsonl
+```
+
+The current fixed `v0.8` uncertainty rule is intentionally not retuned during these runs.
 
 ---
 
@@ -1282,6 +1518,7 @@ scripts/audit_conflict_staged.py
 scripts/audit_epistemic_model_effect.py
 scripts/audit_conditional_gate.py
 scripts/audit_perturbation_stability.py
+scripts/audit_uncertainty_prediction.py
 ```
 
 These are part of the experimental method.
@@ -1304,7 +1541,8 @@ A surprising benchmark score should trigger an audit before a new architecture i
 | v0.6 | How brittle is representation-grounded control to gate errors? | directional corruption curves | COMPLETE |
 | v0.7 | Can abstention trade compute for recovery? | controlled three-way gate | COMPLETE |
 | v0.8 | Can uncertainty come from evidence rather than oracle protection? | calibrated extractor-stability signal | COMPLETE |
-| next | Does instability predict real extraction failure? | controlled image degradation | NEXT |
+| v0.9 | Does calibrated instability predict real extraction failure? | controlled degradation + prospective event audit | COMPLETE |
+| next | Can complementary interpretable risk signals improve failure coverage at acceptable escalation cost? | multi-signal operating-point study | NEXT |
 
 The project trajectory is:
 
@@ -1321,6 +1559,7 @@ benchmark
 → abstention
 → evidence-derived uncertainty
 → prospective uncertainty validation
+→ complementary risk signals / operating point
 ```
 
 ---
@@ -1375,6 +1614,13 @@ Destructive perturbations can manufacture disagreement and create fake uncertain
 
 On the frozen benchmark, the final calibrated signal isolates one unstable case while preserving all stable absent and most stable present cases.
 
+
+### 12. Descriptive instability is not equivalent to general predictive uncertainty
+
+Under controlled degradation, the fixed `v0.8` signal achieves only 35.7% event-level failure recall overall and is strongly degradation-dependent.
+
+Occlusion is well covered; contrast degradation is mostly invisible to the current probe.
+
 ---
 
 # What the Evidence Does Not Yet Support
@@ -1386,6 +1632,7 @@ DetectiveLab does **not** currently establish that:
 - the current perturbation set transfers to another visual domain;
 - `scene_0002` is semantically ambiguous rather than near an extractor threshold;
 - confidence thresholds have been optimized;
+- the current perturbation-stability signal is a general failure probability;
 - learned routing is necessary;
 - a larger model would remove the observed architectural effects;
 - the current benchmark is large enough for broad generalization claims.
@@ -1398,35 +1645,42 @@ The project prioritizes causal interpretability over scale.
 
 # Next Milestone
 
-The next research question should be:
+The likely final research milestone is:
 
-> **Does calibrated extractor instability predict actual extraction failure under controlled image degradation?**
+> **Can multiple complementary, interpretable evidence-risk signals produce a useful failure-coverage versus escalation-cost operating point without learned routing?**
 
-This is a prospective validation problem.
+`v0.9` shows that one perturbation-stability signal is too narrow.
 
-A clean next experiment would:
-
-1. apply controlled image degradation at increasing severity;
-2. measure when the extractor's clean presence decision becomes wrong;
-3. measure whether the calibrated stability signal becomes uncertain before or at failure;
-4. compute failure-detection precision and recall;
-5. measure downstream accuracy and model-call cost under abstention.
-
-Candidate degradation families:
+The next experiment should compare a small set of interpretable signals, for example:
 
 ```text
-blur severity
-resolution loss
-occlusion
-contrast reduction
-localized corruption
+perturbation instability
+extractor match margin
+competing candidate evidence
+threshold proximity
+simple image-quality indicators
 ```
 
-The goal is not to add more architecture.
+The goal is not to maximize accuracy by accumulating arbitrary detectors.
 
-The goal is to determine whether the current uncertainty signal is **predictive**, rather than merely descriptive on the clean benchmark.
+The goal is to measure:
 
-A learned router or learned confidence model should only be introduced if this simpler evidence-derived mechanism reaches a clear limit.
+```text
+failure recall
+failure precision
+false-negative rate
+abstention / escalation rate
+model-call rate
+downstream accuracy
+```
+
+The central operating question is:
+
+> **How much failure coverage can be gained for how much escalation cost?**
+
+This should remain deterministic and interpretable.
+
+Only if those simple signals reach a clear limit should a learned confidence model or learned router be considered.
 
 ---
 
@@ -1478,6 +1732,7 @@ docs/
     v0_6_gate_corruption.md
     v0_7_abstaining_gate.md
     v0_8_evidence_uncertainty.md
+    v0_9_uncertainty_prediction.md
 
 scripts/
   audit_spatial.py
@@ -1485,6 +1740,7 @@ scripts/
   audit_epistemic_model_effect.py
   audit_conditional_gate.py
   audit_perturbation_stability.py
+  audit_uncertainty_prediction.py
 
 src/detectivelab/
   adapters/
@@ -1513,6 +1769,7 @@ v0.5-conditional-epistemic
 v0.6-gate-corruption
 v0.7-abstaining-gate
 v0.8-evidence-uncertainty
+v0.9-uncertainty-prediction
 ```
 
 Selected milestone commits:
@@ -1536,7 +1793,7 @@ DetectiveLab started as a comparison between raw and structured visual evidence.
 
 The experiments now support a broader systems view:
 
-> **Multimodal reliability depends not only on what evidence is available, but on how it is represented, how missing evidence is interpreted, where control decisions are made, which gate errors are allowed to suppress evidence, and whether uncertainty signals are themselves trustworthy.**
+> **Multimodal reliability depends not only on what evidence is available, but on how it is represented, how missing evidence is interpreted, where control decisions are made, which gate errors are allowed to suppress evidence, and whether uncertainty signals are themselves trustworthy, and whether those signals actually predict failure under shift.**
 
 The current architecture remains deliberately simple:
 
@@ -1546,6 +1803,7 @@ extract
 → validate stability
 → hard decision when stable
 → abstain when unstable
+→ prospectively test failure coverage
 → reason only when needed
 ```
 
