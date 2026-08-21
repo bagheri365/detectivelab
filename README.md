@@ -7,13 +7,13 @@ Evidence before complexity is the project rule: freeze the benchmark, add one ca
 ## At a Glance
 
 - **Research question:** when multimodal evidence conflicts, should an AI reason from raw perception, structured observations, or both?
-- **Current milestone:** `v0.2-extracted-structure` is **COMPLETE**.
+- **Current milestone:** `v0.3-conflict-arbitration` is **COMPLETE**.
 - **Current benchmark:** `v0.0.1`, with 10 deterministic scenes, 30 total items, and three case families: spatial, state, and conflict.
-- **Best current result:** `EXTRACTED_FOCUSED` matches `ORACLE_STRUCTURED` at **86.7% overall**.
+- **Best current result:** `CONFLICT_EPISTEMIC` reaches **100% conflict accuracy** on the current 10-item conflict slice; `EXTRACTED_FOCUSED` still matches `ORACLE_STRUCTURED` at **86.7% overall** on the full 30-item benchmark.
 - **Key finding:** task-relevant image-derived structure can match oracle performance, while dense correct structure can materially degrade reasoning.
-- **Remaining bottleneck:** conflict arbitration remains at **60%** even when focused extracted evidence matches the oracle representation.
+- **Key v0.3 finding:** the residual conflict errors came from an epistemic policy mistake—treating missing physical evidence as contradiction rather than uncertainty.
 - **Compute constraint:** the reference benchmark and evaluation workflow must remain runnable on a consumer Mac CPU without required model training.
-- **Next experiment:** isolate why conflict reasoning remains below the state/spatial ceiling before adding routing or hybrid evidence.
+- **Next experiment:** test whether the explicit epistemic rule survives controlled variation before adding routing, hybrid evidence, or other architecture.
 - **Project charter:** see [`DETECTIVELAB_PROJECT.md`](./DETECTIVELAB_PROJECT.md).
 
 ## Why This Project Exists
@@ -50,11 +50,38 @@ The current controlled comparison uses the same `v0.0.1` benchmark and `gemma3:4
 | EXTRACTED_FOCUSED | **86.7%** | **60.0%** | **100.0%** | **100.0%** |
 | ORACLE_STRUCTURED | **86.7%** | **60.0%** | **100.0%** | **100.0%** |
 
-The strongest current result is:
+The strongest `v0.2` result was:
 
 > **Focused image-derived structure matched oracle performance, while dense correct structure degraded reasoning.**
 
 This means the important distinction is not only raw pixels versus symbolic structure. Representation density also matters.
+
+`v0.3` then isolates the remaining conflict bottleneck:
+
+| Conflict condition | Accuracy |
+| --- | ---: |
+| QUESTION | 30% |
+| RAW | 30% |
+| EXTRACTED_FOCUSED | 60% |
+| CONFLICT_STAGED | 70% |
+| CONFLICT_EPISTEMIC | **100%** |
+
+The staged diagnostic decomposes conflict handling into target existence, physical state, testimony/evidence agreement, and final verdict. Under the explicit epistemic rule, all four stages score **10/10** in the semantic audit.
+
+The resulting failure mechanism is specific:
+
+> **The model often treated an absent target as contradictory evidence instead of insufficient evidence.**
+
+Making the policy explicit—
+
+```text
+if EXISTENCE = absent:
+  PHYSICAL_STATE = not_applicable
+  AGREEMENT = unknown
+  VERDICT = unknown
+```
+
+—removed the remaining conflict errors on the current 10-item slice.
 
 ### State
 
@@ -82,28 +109,51 @@ This supports the working principle:
 
 ### Conflict
 
-Conflict accuracy progresses:
+Conflict accuracy now progresses:
 
-`30% QUESTION -> 30% RAW -> 60% EXTRACTED -> 60% FOCUSED -> 60% ORACLE`
+`30% QUESTION -> 30% RAW -> 60% EXTRACTED_FOCUSED -> 70% CONFLICT_STAGED -> 100% CONFLICT_EPISTEMIC`
 
-The structured conditions close the measurable perception gap, but performance still stops at 60%.
+The structured conditions first close the measurable perception gap, but direct conflict verdicting remains imperfect.
 
-That means the remaining conflict failures are downstream of perception and grounding.
+The staged diagnostic then shows where the remaining failure occurs:
 
-Earlier probes identified several RAW failure modes:
+- target existence: 90% in the baseline staged audit
+- physical state: 90%
+- agreement: 70%
+- final verdict: 60% overall in the original semantic audit
 
-- object-grounding errors
-- hallucinated grounding for absent objects
-- visual-state perception errors
-- inconsistent evidence comparison
-- unstable verdict mapping
+The dominant error occurs on `unknown` cases. The model can correctly recognize:
 
-Focused extraction removes the upstream visual ambiguity, but the evidence-arbitration problem remains.
+```text
+EXISTENCE: absent
+PHYSICAL_STATE: not_applicable
+```
+
+but still produce:
+
+```text
+AGREEMENT: contradicts
+VERDICT: contradicted
+```
+
+instead of propagating uncertainty.
+
+`CONFLICT_EPISTEMIC` adds only an explicit rule stating that absence of physical evidence implies `unknown`, not contradiction. With that rule, the semantic audit reaches:
+
+- existence: 100%
+- physical state: 100%
+- agreement: 100%
+- verdict: 100%
+
+**Working interpretation:**
+
+> The residual conflict bottleneck was epistemic rather than perceptual: the model needed an explicit policy for distinguishing contradiction from insufficient evidence.
 
 See:
 
 - [`docs/results/v0_1_direct.md`](./docs/results/v0_1_direct.md)
 - [`docs/results/v0_2_extracted_structure.md`](./docs/results/v0_2_extracted_structure.md)
+- [`docs/results/v0_3_conflict_arbitration.md`](./docs/results/v0_3_conflict_arbitration.md)
 
 ## Benchmark History
 
@@ -154,6 +204,8 @@ DetectiveLab currently supports five evaluation conditions:
 | `ORACLE_STRUCTURED` | correct symbolic facts from hidden benchmark state |
 | `EXTRACTED_STRUCTURED` | dense symbolic facts recovered from `scene.png` only |
 | `EXTRACTED_FOCUSED` | task-relevant subset of image-derived symbolic facts |
+| `CONFLICT_STAGED` | focused conflict evidence + explicit intermediate decisions |
+| `CONFLICT_EPISTEMIC` | staged conflict reasoning + explicit missing-evidence policy |
 
 `ORACLE_STRUCTURED` is a diagnostic upper bound, not a deployable perception system.
 
@@ -163,7 +215,7 @@ The focused formatter may use participant-facing task text to select relevant ex
 
 ## Research Evolution
 
-> benchmark -> direct perception -> oracle structure -> extracted structure -> focused representation -> conflict arbitration -> hybrid / robustness / routing only if justified
+> benchmark -> direct perception -> oracle structure -> extracted structure -> focused representation -> conflict arbitration -> robustness / generalization -> hybrid / routing only if justified
 >
 > evidence before complexity
 
@@ -173,7 +225,8 @@ The focused formatter may use participant-facing task text to select relevant ex
 | `v0.0.1` | Can we remove the conflict-rule shortcut without changing the research question? | Constant rule, image-dependent 3-way conflict verdicts, leakage guards | **VALIDATED** |
 | `v0.1-direct` | How much can the model solve from priors versus raw visual evidence? | QUESTION and RAW evaluation harness; oracle diagnostic added | **COMPLETE** |
 | `v0.2-extracted-structure` | Can explicit image-derived structure recover the oracle gap? | Dense and focused image-only structured evidence | **COMPLETE** |
-| `v0.3-conflict-arbitration` | Why does conflict remain at 60% after perception is controlled? | Staged comparison / verdict reasoning diagnostics | **NEXT** |
+| `v0.3-conflict-arbitration` | Why does conflict remain below ceiling after perception is controlled? | Staged reasoning + explicit epistemic policy | **COMPLETE** |
+| next | Does the epistemic policy survive controlled variation? | Paraphrase / case variation / second-model robustness checks | **NEXT** |
 | later | Does retaining both pixels and structure improve robustness? | RAW + STRUCTURED hybrid path | Conditional |
 | later | When does structured evidence become brittle? | Controlled evidence corruption | Conditional |
 | later | Do different case types justify different evidence paths? | Routing | Conditional |
@@ -193,6 +246,9 @@ The focused formatter may use participant-facing task text to select relevant ex
 - oracle structured evidence formatter
 - deterministic image-only reference extractor
 - focused representation ablation
+- staged conflict reasoning diagnostic
+- semantic stage audit with alias/suffix normalization
+- explicit epistemic missing-evidence rule
 - automated leakage and hidden-state access tests
 - manual and blind visual audits before freeze
 - explicit benchmark-version freeze rule
@@ -232,10 +288,10 @@ After the virtual environment has been created once, future sessions only need:
 source .venv/bin/activate
 ```
 
-The current `v0.2-extracted-structure` branch should report:
+The current `v0.3-conflict-arbitration` branch should report:
 
 ```text
-57 passed
+66 passed
 ```
 
 ## Reproducing the Benchmark Checks
@@ -354,6 +410,7 @@ These scripts exist to diagnose measured failures. They are not separate benchma
 - The benchmark does not currently cover OCR, natural photographs, video, audio, tool use, or open-ended generation.
 - `ORACLE_STRUCTURED` is an upper-bound diagnostic and should not be interpreted as a deployable architecture.
 - `EXTRACTED_FOCUSED` uses task text to select relevant extracted facts; this is deliberate and should be distinguished from blind scene summarization.
+- `CONFLICT_EPISTEMIC` encodes the benchmark's missing-evidence policy explicitly; its 100% result is a controlled mechanism result, not evidence of broad uncertainty calibration.
 
 ## What the Current Evidence Suggests
 
@@ -366,6 +423,7 @@ The project currently supports several methodological lessons:
 - dense correct structure can still hurt reasoning
 - task-relevant structure can recover the full measured oracle gap on the current slice
 - perception can be fully controlled while evidence arbitration remains difficult
+- missing evidence and contradictory evidence are distinct epistemic states, and models may need that distinction made explicit
 - model complexity should only be added after the previous experiment identifies a measured bottleneck
 
 In short:
@@ -374,22 +432,22 @@ In short:
 
 ## Next Milestone
 
-### `v0.3-conflict-arbitration`
+### Robustness of the epistemic policy
 
-Current state and spatial performance reach 100% under focused extracted evidence, while conflict remains at 60%.
+`v0.3-conflict-arbitration` is complete.
 
-The next research question is therefore:
+The next research question is:
 
-> Why does conflict accuracy remain at 60% even when the relevant visual evidence is represented correctly and concisely?
+> Does the explicit distinction between missing evidence and contradictory evidence survive controlled variation?
 
-The next experiment should separate:
+The next experiments should remain small and mechanism-focused. Good candidates are:
 
-1. target existence / absence
-2. state comparison
-3. witness-evidence agreement
-4. final verdict mapping
+1. paraphrase witness testimony while preserving semantics
+2. vary object/state combinations and unknown cases
+3. increase the number of conflict examples without changing the reasoning rule
+4. repeat the conflict comparison with one additional small local model
 
-No routing, hybrid RAW+STRUCTURED path, fine-tuning, or benchmark expansion should be added until this remaining bottleneck is understood.
+No routing, hybrid RAW+STRUCTURED path, fine-tuning, or larger architecture should be added until the discovered epistemic mechanism proves stable enough to justify further complexity.
 
 ## Freeze Rule
 
