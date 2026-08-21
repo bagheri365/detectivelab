@@ -1,47 +1,51 @@
-## v0.6 Gate Corruption
+## v0.7 Abstaining Gate
 
-`v0.6-gate-corruption` tests how representation-grounded control behaves when the extractor-derived presence gate is intentionally corrupted.
+`v0.7-abstaining-gate` tests whether an abstention path can rescue the catastrophic false-absence errors identified in `v0.6`.
 
-The benchmark, extractor, staged prompt, and gold labels remain frozen. Only the gate value used for control flow is perturbed.
+The gate now permits:
 
-Two error directions are tested:
+```text
+present
+absent
+uncertain
+```
 
-- **false absence:** present target → absent
-- **false presence:** absent target → present
+with:
 
-Corruption is applied deterministically at 25%, 50%, 75%, and 100% of eligible cases.
+```text
+present   -> staged reasoning
+absent    -> deterministic unknown
+uncertain -> staged reasoning
+```
 
-### Degradation curves
+The experiment starts from the 100% false-absence stress condition and converts deterministic subsets of would-be false absences to `uncertain`.
 
-| Model | Corruption | 25% | 50% | 75% | 100% |
-| --- | --- | ---: | ---: | ---: | ---: |
-| Gemma 3 4B | false absence | 80% | 70% | 50% | 40% |
-| Gemma 3 4B | false presence | 100% | 90% | 80% | 70% |
-| Qwen3 4B | false absence | 80% | 70% | 50% | 40% |
-| Qwen3 4B | false presence | 100% | 100% | 100% | 100% |
+### Accuracy / compute tradeoff
 
-The clean extractor-gated baseline is 100% for both models.
+Gemma and Qwen produce the same curve:
+
+| Protection | Residual false absences | Model-call rate | Accuracy |
+| ---: | ---: | ---: | ---: |
+| 0% | 6/6 | 0% | 40% |
+| 25% | 4/6 | 20% | 60% |
+| 50% | 3/6 | 30% | 70% |
+| 75% | 1/6 | 50% | 90% |
+| 100% | 0/6 | 60% | 100% |
 
 The central result is:
 
-> **Gate corruption is directionally asymmetric: false absence suppresses evidence before reasoning and causes model-independent accuracy loss, while false presence remains recoverable according to the downstream model's native epistemic capability.**
+> **Abstention converts catastrophic false-negative gate errors into recoverable reasoning calls.**
 
-For this architecture:
+At full protection, the system restores 100% accuracy while still using zero model calls on the four genuinely absent cases.
 
-> **Target-presence recall matters more than target-presence precision.**
+This is not equivalent to always invoking the reasoner.
 
-Gemma gradually loses `unknown` accuracy under false presence, while Qwen recovers all false-presence cases even at 100% corruption. Neither model can recover false absence because the reasoner is bypassed.
+The important limitation is that `v0.7` uses controlled protection. It measures the **value of abstention**, not the quality of an uncertainty estimator.
 
-See [`docs/results/v0_6_gate_corruption.md`](./docs/results/v0_6_gate_corruption.md).
-
-Current test status:
-
-```text
-96 passed
-```
+See [`docs/results/v0_7_abstaining_gate.md`](./docs/results/v0_7_abstaining_gate.md).
 
 ### Next research question
 
-> Can an abstaining or confidence-aware gate reduce catastrophic false-absence errors without reintroducing unnecessary model reasoning?
+> Can uncertainty be derived from the extractor itself rather than supplied by controlled oracle protection?
 
-No learned router is justified yet.
+The next step should remain evidence-grounded and interpretable before any learned routing is introduced.
