@@ -1,46 +1,116 @@
 # DetectiveLab
 
-**A controlled multimodal research lab for studying when visual evidence should stay raw, when it should become structured, and how reasoning systems should arbitrate conflicting evidence.**
+**A controlled multimodal research lab for studying when visual evidence should stay raw, when it should become structured, and when escalation is actually worth the cost.**
 
-DetectiveLab is a research-first repository built around a deliberately small synthetic benchmark. The goal is not to maximize benchmark accuracy as quickly as possible. The goal is to isolate *why* a multimodal system succeeds or fails by changing one capability at a time.
-
-The completed research arc studies five linked questions:
-
-1. **Perception:** can the model recover the relevant evidence from an image?
-2. **Representation:** should that evidence remain raw, become dense structure, or become focused structure?
-3. **Epistemic policy:** how should the system reason when physical evidence and testimony conflict?
-4. **Control:** when should the system trust a structured signal, abstain, or escalate to the language model?
-5. **Escalation value:** when a case is risky, is the fallback reasoner actually likely to improve the outcome?
-
-The guiding rule throughout the repository is:
+DetectiveLab uses a small frozen synthetic benchmark to isolate failure causes one capability at a time. The project does not optimize for maximum benchmark score; it optimizes for **diagnosability**.
 
 > **Evidence before complexity.**
 
-Before adding routing, learned confidence, fine-tuning, or larger architectures, DetectiveLab first asks whether the failure can be explained by perception, representation density, reasoning policy, gate location, or uncertainty estimation.
-
----
-
 ## Status
 
-- **Current branch:** `v0.10-risk-operating-point`
-- **Current milestone:** `v0.10` complete — research complete
-- **Current test suite:** `125 passed`
-- **Final milestone commit:** `a4bb9e7`
-- **Milestone tags:** `v0.0` through `v0.10`
-- **Suggested README visual:** `docs/figures/benchmark_example_scene_0002.png`
-- **Frozen benchmark:** `artifacts/benchmark_v0_0_1`
-- **Primary local models:**
-  - `gemma3:4b`
-  - `qwen3:4b-instruct-2507-q4_K_M`
-- **Best canonical conflict result:** 100% on both models
-- **Final operating-point result:** broader risk signals increase failure coverage, but every higher-compute policy is dominated on accuracy versus model-call cost
+- Final milestone: `v0.10`
+- Branch: `v0.10-risk-operating-point`
+- Tests: `125 passed`
+- Frozen benchmark: `artifacts/benchmark_v0_0_1`
+- Main models: `gemma3:4b`, `qwen3:4b-instruct-2507-q4_K_M`
+- Research status: **complete**
 
-The final architectural path studied is:
+Final systems principle:
+
+> **Uncertainty is useful only when escalation has positive expected value.**
+
+## Quick read
+
+The research arc established five main results:
+
+1. **Perception can masquerade as reasoning failure.** Oracle structure substantially outperformed raw input.
+2. **Focused structure can beat dense correct structure.** More evidence is not always better evidence.
+3. **Conflict reasoning depends on epistemic policy.** Missing evidence was often misread as contradiction.
+4. **Control works better from reliable structured facts than from re-inference.** Gate location mattered.
+5. **Risk detection alone is insufficient.** In `v0.10`, broader failure coverage increased model calls but reduced downstream accuracy because the fallback was itself unreliable.
+
+## One real benchmark example
+
+![Real benchmark example from `scene_0002`](docs/figures/benchmark_example_scene_0002.png)
+
+`scene_0002` is a real conflict item from the frozen benchmark:
+
+- physical evidence: **blue window = closed**
+- witness testimony: **blue window = open**
+- rule: **current physical evidence overrides unverified witness testimony**
+- gold verdict: **contradicted**
+
+This captures the core benchmark pattern:
 
 ```text
-raw image
+scene image
+→ focused evidence extraction
+→ compare physical evidence with testimony
+→ apply an explicit policy
+→ final verdict
+```
+
+## Benchmark
+
+The corrected benchmark is frozen at:
+
+```text
+artifacts/benchmark_v0_0_1
+```
+
+It contains:
+
+```text
+10 scenes × 3 families = 30 items
+```
+
+Families:
+
+- `spatial`
+- `state`
+- `conflict`
+
+Label balance:
+
+```text
+spatial:  5 yes / 5 no
+state:    5 yes / 5 no
+conflict: 3 supported / 3 contradicted / 4 unknown
+```
+
+Validate it with:
+
+```bash
+python -m detectivelab.validate artifacts/benchmark_v0_0_1
+```
+
+The original `v0.0` conflict benchmark was invalidated because its wording leaked a shortcut. It is preserved rather than silently rewritten.
+
+## Results at a glance
+
+| Milestone | Main intervention | Main result |
+| --- | --- | --- |
+| `v0.1` | raw vs oracle structure | Oracle structure: **86.7%** overall vs raw: **53.3%** |
+| `v0.2` | dense vs focused extracted structure | Focused structure matched oracle at **86.7%** |
+| `v0.3` | explicit missing-evidence policy | Gemma conflict: **70% → 100%** |
+| `v0.4` | cross-model robustness | Same policy can help one model and hurt another |
+| `v0.5` | LLM gate vs extractor gate | Extractor-gated conflict: **100%** on both models |
+| `v0.6` | directional gate corruption | False absence is much more damaging than false presence |
+| `v0.7` | abstaining gate | Abstention trades compute for recovery |
+| `v0.8` | calibrated extractor instability | Evidence-grounded uncertainty recovered **100%** canonical conflict accuracy |
+| `v0.9` | prospective degradation test | Event-level failure recall only **35.7%** overall |
+| `v0.10` | multi-signal risk policies | Best accuracy remained **83.0% at 43.0% model calls**; broader escalation was dominated |
+
+Detailed write-ups live in [`docs/results/`](docs/results/).
+
+## Final architecture studied
+
+```text
+scene.png
    ↓
 deterministic image-derived structure
+   ↓
+focused evidence
    ↓
 evidence-risk signals
    ↓
@@ -50,1500 +120,23 @@ control decision
    └─ risky/uncertain → escalate only when fallback value is justified
 ```
 
+This is intentionally **not** a learned router.
 
-Final research conclusion:
+`v0.10` showed why: detecting more risky cases did not improve the accuracy-compute frontier when the fallback reasoner could not reliably recover them.
 
-> **Uncertainty is useful only when escalation has positive expected value.**
+## Final `v0.10` operating point
 
-`v0.10` found that broader interpretable risk signals increased failure coverage, but all higher-compute escalation policies reduced downstream accuracy on the tested degradation set. The limiting factor was therefore not only risk detection, but fallback quality.
+Gemma results:
 
-
----
-
-
-## Quick Reader Guide
-
-If you only read one minute of this README, the core story is:
-
-- `v0.1` showed that **perception bottlenecks can look like reasoning failures**.
-- `v0.2` showed that **focused structured evidence beats dense correct structure**.
-- `v0.3` and `v0.4` showed that **conflict reasoning depends on epistemic policy, and the best policy can be model-dependent**.
-- `v0.5` through `v0.8` showed that **control works best when grounded in reliable extracted evidence rather than re-inference**.
-- `v0.9` and `v0.10` showed that **risk detection alone is not enough; escalation is only useful when the fallback path has positive expected value**.
-
-One-sentence project conclusion:
-
-> **Uncertainty is useful only when escalation has positive expected value.**
-
----
-
-# Why DetectiveLab Exists
-
-Multimodal systems often fail in ways that are difficult to diagnose because several components are entangled.
-
-A wrong final answer might come from:
-
-- failing to see the relevant object,
-- seeing it but encoding it poorly,
-- providing too much structured information,
-- applying the wrong reasoning policy,
-- placing control logic in the wrong component,
-- or trusting an unreliable uncertainty signal.
-
-If all of those are changed at once, a benchmark score says very little about the cause.
-
-DetectiveLab instead treats the system like an experimental object.
-
-The benchmark is frozen. One intervention is added. The result is measured. Negative results are preserved. Only then is additional complexity considered.
-
----
-
-# Research Thesis
-
-The project began with a simple question:
-
-> **When should visual evidence remain raw, and when should it become explicit structured evidence?**
-
-That question evolved as the experiments exposed new bottlenecks.
-
-The current research story is:
-
-```text
-perception failures
-    ↓
-representation bottlenecks
-    ↓
-representation density effects
-    ↓
-epistemic policy failures
-    ↓
-model-specific policy effects
-    ↓
-gate-location failures
-    ↓
-asymmetric gate corruption
-    ↓
-abstention as risk control
-    ↓
-evidence-derived uncertainty
-```
-
-The resulting architecture is intentionally simpler than a learned router.
-
-No routing model has yet been justified by the evidence.
-
----
-
-# Benchmark
-
-
-## One Real Benchmark Example
-
-The figure below uses an **actual repo example** rather than a stylized mockup.
-It is meant to help quick readers understand what one benchmark item looks like.
-
-![Real benchmark example from `scene_0002`](docs/figures/benchmark_example_scene_0002.png)
-
-**What this example shows**
-
-- Scene: `scene_0002`
-- Family: `conflict`
-- Target: `blue window`
-- Physical evidence: the blue window is **present** and **closed**
-- Witness testimony: the witness says the blue window is **currently open**
-- Rule: **current physical evidence overrides unverified witness testimony**
-- Gold label: **contradicted**
-
-This single example captures the full research pattern behind DetectiveLab:
-
-```text
-scene image
-→ focused evidence extraction
-→ compare physical evidence with testimony
-→ apply an explicit conflict policy
-→ emit the final verdict
-```
-
-Readers who understand this example will understand the core benchmark design.
-
----
-
-## Frozen corrected benchmark: `v0.0.1`
-
-Path:
-
-```text
-artifacts/benchmark_v0_0_1
-```
-
-The corrected benchmark contains:
-
-```text
-10 scenes
-× 3 question families
-= 30 items
-```
-
-Families:
-
-- spatial
-- state
-- conflict
-
-Label balance:
-
-```text
-spatial:
-  yes  = 5
-  no   = 5
-
-state:
-  yes  = 5
-  no   = 5
-
-conflict:
-  supported     = 3
-  contradicted  = 3
-  unknown       = 4
-```
-
-Conflict items use the constant participant-facing rule:
-
-> **Current physical evidence overrides unverified witness testimony.**
-
-Unknown conflict cases are scene-dependent and refer to a plausible target that is absent from the current physical evidence.
-
-For those cases:
-
-```text
-subject_id = null
-```
-
-The benchmark intentionally separates participant-facing inputs from hidden scoring information.
-
-Gold labels are not placed in participant payloads.
-
-Validate the benchmark with:
-
-```bash
-python -m detectivelab.validate artifacts/benchmark_v0_0_1
-```
-
----
-
-## Why `v0.0` Was Not Used
-
-The original `v0.0` conflict family contained a shortcut.
-
-The wording of the rule allowed a model to infer the conflict answer from the question itself without properly grounding the physical scene.
-
-This made the conflict family invalid as a perception-and-reasoning test.
-
-The original benchmark is preserved rather than rewritten.
-
-The corrected `v0.0.1` benchmark removes that shortcut and is frozen for all subsequent experiments.
-
-This is an important project rule:
-
-> **Invalid benchmarks are preserved as evidence; they are not silently repaired in place.**
-
----
-
-# Experimental Philosophy
-
-Every milestone follows the same discipline:
-
-1. freeze the benchmark;
-2. identify one failure hypothesis;
-3. add one intervention;
-4. measure it on the same slice;
-5. audit surprising failures;
-6. preserve negative results;
-7. avoid adding architecture until the evidence requires it.
-
-This means DetectiveLab intentionally includes failed approaches.
-
-Examples include:
-
-- question-only shortcut leakage in `v0.0`;
-- dense correct structure degrading spatial reasoning in `v0.2`;
-- a standalone LLM gate creating false-absence errors in `v0.5`;
-- globally applied epistemic policy degrading Qwen in `v0.4`;
-- brightness perturbations manufacturing uncertainty in early `v0.8`.
-
-These are not discarded implementation mistakes.
-
-They are part of the research result.
-
----
-
-# Experiment Ladder
-
-## v0.1 — Direct Evidence Conditions
-
-Branch:
-
-```text
-v0.1-direct
-```
-
-Commit:
-
-```text
-3adb657
-```
-
-The first controlled comparison tested three evidence conditions with Gemma 3 4B.
-
-### Conditions
-
-```text
-QUESTION
-RAW
-ORACLE_STRUCTURED
-```
-
-### Results
-
-| Condition | Overall | Conflict | Spatial | State |
-| --- | ---: | ---: | ---: | ---: |
-| QUESTION | 50.0% | 30% | 70% | 50% |
-| RAW | 53.3% | 30% | 50% | 80% |
-| ORACLE_STRUCTURED | **86.7%** | 60% | **100%** | **100%** |
-
-### Finding
-
-The large jump from raw/question conditions to oracle structure showed that much of the apparent reasoning failure was actually upstream.
-
-> **Perception and representation were major bottlenecks.**
-
-However, conflict remained at only 60% even with oracle structure.
-
-That suggested a second failure mode downstream of perception.
-
-Results:
-
-```text
-docs/results/v0_1_direct.md
-```
-
----
-
-## v0.2 — Extracted Structure
-
-Branch:
-
-```text
-v0.2-extracted-structure
-```
-
-README milestone commit:
-
-```text
-469ce47
-```
-
-A deterministic image-only extractor was added.
-
-Key implementation:
-
-```text
-src/detectivelab/extraction/base.py
-src/detectivelab/extraction/synthetic.py
-```
-
-Public functions include:
-
-```python
-extract_scene_facts(image_path)
-extract_structured_evidence(image_path)
-```
-
-The extractor reads only:
-
-```text
-scene.png
-```
-
-It does not read:
-
-```text
-scene.json
-gold labels
-hidden provenance
-```
-
-### Dense extracted structure
-
-Condition:
-
-```text
-EXTRACTED_STRUCTURED
-```
-
-Gemma result:
-
-| Family | Accuracy |
-| --- | ---: |
-| Overall | 70.0% |
-| Conflict | 60% |
-| Spatial | 50% |
-| State | 100% |
-
-The spatial audit revealed an unexpected result:
-
-- the extracted spatial relations were correct;
-- the model still failed;
-- all 15 pairwise relations were presented;
-- Gemma developed a strong yes-bias.
-
-The representation was correct but too dense.
-
-### Focused extracted structure
-
-Condition:
-
-```text
-EXTRACTED_FOCUSED
-```
-
-Gemma result:
-
-| Family | Accuracy |
-| --- | ---: |
-| Overall | **86.7%** |
-| Conflict | 60% |
-| Spatial | **100%** |
-| State | **100%** |
-
-This exactly matched the oracle-structured condition.
-
-### Finding
-
-> **Focused image-derived structure matched oracle performance, while dense correct structure degraded reasoning.**
-
-This established two distinct representation lessons:
-
-1. converting visual evidence into explicit structure can remove a perception bottleneck;
-2. more correct structure is not necessarily better structure.
-
-The current benchmark therefore shows a **representation-density effect**, not merely an extraction-quality effect.
-
-Audit:
-
-```text
-scripts/audit_spatial.py
-```
-
-Results:
-
-```text
-docs/results/v0_2_extracted_structure.md
-```
-
----
-
-## v0.3 — Conflict Arbitration
-
-Branch:
-
-```text
-v0.3-conflict-arbitration
-```
-
-README milestone commit:
-
-```text
-65c29af
-```
-
-After `v0.2`, spatial and state performance were effectively solved on the current slice.
-
-Conflict remained at 60%.
-
-The next question was therefore:
-
-> **What reasoning failure remains after perception is controlled?**
-
-### Staged conflict reasoning
-
-Condition:
-
-```text
-CONFLICT_STAGED
-```
-
-The model was required to produce:
-
-```text
-EXISTENCE:
-PHYSICAL_STATE:
-AGREEMENT:
-VERDICT:
-```
-
-A semantic audit showed that the major failure pattern was:
-
-```text
-target absent
-→ physical state not applicable
-→ model still says contradicts
-→ verdict contradicted
-```
-
-The model was conflating:
-
-> absence of evidence
-
-with:
-
-> contradictory evidence
-
-### Explicit epistemic policy
-
-Condition:
-
-```text
-CONFLICT_EPISTEMIC
-```
-
-Added rule:
-
-```text
-if EXISTENCE = absent:
-  PHYSICAL_STATE = not_applicable
-  AGREEMENT = unknown
-  VERDICT = unknown
-```
-
-Gemma canonical conflict results:
-
-| Condition | Accuracy |
-| --- | ---: |
-| CONFLICT_STAGED | 70% |
-| CONFLICT_EPISTEMIC | **100%** |
-
-Final semantic audit:
-
-```text
-existence       100%
-physical state  100%
-agreement       100%
-verdict         100%
-```
-
-### Finding
-
-> **After perception is controlled, the remaining Gemma conflict failure is an epistemic-policy failure.**
-
-More specifically:
-
-> **Absence of evidence was being treated as contradictory evidence.**
-
-Audit:
-
-```text
-scripts/audit_conflict_staged.py
-```
-
-Results:
-
-```text
-docs/results/v0_3_conflict_arbitration.md
-```
-
----
-
-## v0.4 — Epistemic Robustness
-
-Branch:
-
-```text
-v0.4-epistemic-robustness
-```
-
-README milestone commit:
-
-```text
-45c632c1
-```
-
-`v0.3` fixed the canonical Gemma conflict slice.
-
-`v0.4` tested whether that fix was robust.
-
-The scope was deliberately limited to:
-
-1. paraphrase robustness;
-2. controlled case variation;
-3. cross-model robustness.
-
-No routing was added.
-
----
-
-### Gemma paraphrase robustness
-
-Three witness paraphrases were generated for every canonical conflict item:
-
-```text
-according_to
-claim_is
-reports_now
-```
-
-30 records per policy.
-
-Results:
-
-| Policy | Accuracy |
-| --- | ---: |
-| staged | 66.7% |
-| epistemic | **100%** |
-
-Under the staged policy, `unknown` accuracy fell to 16.7%.
-
-Under the explicit epistemic policy, every variant and label reached 100%.
-
----
-
-### Gemma case variation
-
-Three deterministic conflict variants per scene:
-
-```text
-present_supported
-present_contradicted
-absent_unknown
-```
-
-30 records per policy.
-
-Results:
-
-| Policy | Accuracy |
-| --- | ---: |
-| staged | 66.7% |
-| epistemic | **100%** |
-
-Again:
-
-```text
-supported     100%
-contradicted  100%
-unknown       100%
-```
-
-under the explicit policy.
-
----
-
-### Cross-model Qwen robustness
-
-Qwen did not behave like Gemma.
-
-Canonical:
-
-| Policy | Qwen |
-| --- | ---: |
-| staged | **100%** |
-| epistemic | 90% |
-
-Paraphrase:
-
-| Policy | Qwen |
-| --- | ---: |
-| staged | 86.7% |
-| epistemic | 93.3% |
-
-Case variation:
-
-| Policy | Qwen |
-| --- | ---: |
-| staged | **100%** |
-| epistemic | 93.3% |
-
-The explicit rule improved missing-evidence handling but introduced genuine present-target regressions.
-
-The repeated pattern was:
-
-```text
-present / open contradicted case
-
-AGREEMENT:
-  contradicts → supports
-
-VERDICT:
-  contradicted → supported
-```
-
-### Finding
-
-> **The same explicit reasoning intervention can fix one model and degrade another.**
-
-The missing-evidence rule is highly effective for Gemma, but its net value is model-dependent.
-
-This was the first strong evidence that a global reasoning policy was not the right control mechanism.
-
-Audit:
-
-```text
-scripts/audit_epistemic_model_effect.py
-```
-
-Results:
-
-```text
-docs/results/v0_4_epistemic_robustness.md
-```
-
----
-
-## v0.5 — Conditional Epistemic Control
-
-Branch:
-
-```text
-v0.5-conditional-epistemic
-```
-
-Implementation commit:
-
-```text
-1c47060
-```
-
-README milestone commit:
-
-```text
-35458c6
-```
-
-Research question:
-
-> **Can the missing-evidence rule activate only after absence is detected, preserving unknown-case gains without perturbing present-target reasoning?**
-
-Four policies were compared:
-
-| Policy | Control mechanism |
-| --- | --- |
-| `CONFLICT_STAGED` | no explicit missing-evidence rule |
-| `CONFLICT_EPISTEMIC` | global explicit epistemic rule |
-| `CONFLICT_CONDITIONAL` | standalone LLM existence gate |
-| `CONFLICT_EXTRACTOR_GATED` | gate from existing image-derived structure |
-
-### Canonical conflict
-
-| Model | Staged | Global epistemic | LLM-gated | Extractor-gated |
-| --- | ---: | ---: | ---: | ---: |
-| Gemma 3 4B | 70% | **100%** | 70% | **100%** |
-| Qwen3 4B | **100%** | 90% | 70% | **100%** |
-
-### Negative result: LLM gate
-
-The standalone existence gate created a new failure mode.
-
-Both models falsely classified the same three present contradicted targets as absent.
-
-That forced:
-
-```text
-not_applicable
-unknown
-unknown
-```
-
-even though the full staged reasoning prompt recognized the targets as present.
-
-The gate was less reliable than the reasoning policy it was supposed to control.
-
-### Successful result: extractor gate
-
-Instead of asking the model to re-infer existence, DetectiveLab reused the already validated image-derived presence signal.
-
-Routing:
-
-```text
-target absent
-→ zero model calls
-→ deterministic unknown
-
-target present
-→ unchanged staged reasoning
-```
-
-Canonical result:
-
-```text
-Gemma 10/10
-Qwen  10/10
-```
-
-Robustness:
-
-| Model | Slice | Extractor-gated |
-| --- | --- | ---: |
-| Gemma | canonical | 100% |
-| Gemma | paraphrases | 100% |
-| Gemma | case variation | 100% |
-| Qwen | canonical | 100% |
-| Qwen | paraphrases | 96.7% |
-| Qwen | case variation | 100% |
-
-### Finding
-
-> **Gate location matters.**
-
-More specifically:
-
-> **When control depends on a fact already available in reliable structured evidence, use that fact directly rather than asking the reasoner to re-infer it.**
-
-This result did not justify a learned router.
-
-It justified simpler representation-grounded control.
-
-Audit:
-
-```text
-scripts/audit_conditional_gate.py
-```
-
-Results:
-
-```text
-docs/results/v0_5_conditional_epistemic.md
-```
-
----
-
-## v0.6 — Gate Corruption
-
-Branch:
-
-```text
-v0.6-gate-corruption
-```
-
-Research question:
-
-> **How brittle is representation-grounded control when the gate signal is wrong?**
-
-Two directional corruptions were introduced.
-
-### False absence
-
-```text
-present → absent
-```
-
-This suppresses evidence and forces the deterministic unknown path.
-
-### False presence
-
-```text
-absent → present
-```
-
-This sends a genuinely absent case back to staged reasoning.
-
-Corruption was applied deterministically at:
-
-```text
-25%
-50%
-75%
-100%
-```
-
-of eligible cases.
-
-### Full degradation grid
-
-| Model | Corruption | 25% | 50% | 75% | 100% |
-| --- | --- | ---: | ---: | ---: | ---: |
-| Gemma 3 4B | false absence | 80% | 70% | 50% | 40% |
-| Gemma 3 4B | false presence | 100% | 90% | 80% | 70% |
-| Qwen3 4B | false absence | 80% | 70% | 50% | 40% |
-| Qwen3 4B | false presence | 100% | 100% | 100% | 100% |
-
-### Finding
-
-Gate corruption is strongly asymmetric.
-
-False absence is model-independent because the model never receives the evidence.
-
-False presence is model-dependent because the downstream reasoner still has an opportunity to recover.
-
-The architectural result is:
-
-> **Errors before a hard control boundary are not equivalent. False negatives that suppress evidence can be substantially more dangerous than false positives that permit additional reasoning.**
-
-For this gate:
-
-> **Target-presence recall matters more than target-presence precision.**
-
-Results:
-
-```text
-docs/results/v0_6_gate_corruption.md
-```
-
----
-
-## v0.7 — Abstaining Gate
-
-Branch:
-
-```text
-v0.7-abstaining-gate
-```
-
-Commit:
-
-```text
-b2b82a4
-```
-
-Research question:
-
-> **Can an abstaining gate reduce catastrophic false-absence errors without sending every case to the reasoner?**
-
-The binary gate became three-way:
-
-```text
-present
-absent
-uncertain
-```
-
-Routing:
-
-```text
-present   → staged reasoning
-absent    → deterministic unknown
-uncertain → staged reasoning
-```
-
-The experiment started from the `v0.6` 100% false-absence stress condition.
-
-A controlled protection signal converted selected false-absence decisions to `uncertain`.
-
-### Accuracy / compute tradeoff
-
-Gemma and Qwen produced the same curve:
-
-| Protection | Residual false absences | Abstention rate | Model-call rate | Accuracy |
-| ---: | ---: | ---: | ---: | ---: |
-| 0% | 6/6 | 0% | 0% | 40% |
-| 25% | 4/6 | 20% | 20% | 60% |
-| 50% | 3/6 | 30% | 30% | 70% |
-| 75% | 1/6 | 50% | 50% | 90% |
-| 100% | 0/6 | 60% | 60% | **100%** |
-
-At full protection:
-
-```text
-6 present cases → model reasoning
-4 absent cases  → zero-call deterministic unknown
-```
-
-### Finding
-
-> **Abstention converts catastrophic false-negative gate errors into recoverable reasoning calls.**
-
-This produced a direct accuracy-versus-compute tradeoff.
-
-However, `v0.7` did **not** solve uncertainty estimation.
-
-The protection signal was controlled by the experiment.
-
-Therefore:
-
-> **v0.7 measures the value of abstention, not the quality of an uncertainty estimator.**
-
-Results:
-
-```text
-docs/results/v0_7_abstaining_gate.md
-```
-
----
-
-## v0.8 — Evidence-Derived Uncertainty
-
-Branch:
-
-```text
-v0.8-evidence-uncertainty
-```
-
-Research question:
-
-> **Can uncertainty be derived from extractor evidence itself rather than supplied by controlled oracle protection?**
-
-The first approach estimated uncertainty from extractor stability under deterministic image perturbations.
-
----
-
-### Phase 1: naive perturbation ensemble
-
-Initial views:
-
-```text
-original
-brightness_090
-brightness_110
-blur_060
-downsample_075
-```
-
-Rule:
-
-```text
-unanimous present → present
-unanimous absent  → absent
-any disagreement  → uncertain
-```
-
-Initial result on both models:
-
-```text
-hard present: 0/10
-hard absent:  4/10
-uncertain:    6/10
-model calls:  6/10
-accuracy:     10/10
-```
-
-This looked promising but was misleading.
-
-### Audit of the probes
-
-Per-view extractor behavior:
-
-| View | Present | Absent | Clean agreement |
+| Policy | Failure recall | Model-call rate | Accuracy |
 | --- | ---: | ---: | ---: |
-| original | 6 | 4 | 100% |
-| brightness_090 | 0 | 10 | 40% |
-| brightness_110 | 0 | 10 | 40% |
-| blur_060 | 5 | 5 | 90% |
-| downsample_075 | 6 | 4 | 100% |
-
-Both brightness perturbations destroyed every present detection.
-
-The apparent uncertainty signal was therefore mostly a perturbation-induced extractor failure.
-
-### Negative finding
-
-> **Perturbation disagreement is not automatically epistemic uncertainty. Destructive probes can manufacture abstention.**
-
-This is an important measurement lesson:
-
-> **The uncertainty probe must itself be validated before its output is trusted.**
-
----
-
-### Phase 2: perturbation calibration
-
-A dedicated audit evaluated candidate perturbations before using them for gating.
-
-Candidate set:
-
-```text
-original
-blur_020
-blur_040
-blur_060
-downsample_090
-downsample_075
-downsample_060
-```
-
-Audit:
-
-| View | Present | Absent | Agreement with clean |
-| --- | ---: | ---: | ---: |
-| original | 6 | 4 | 100% |
-| blur_020 | 5 | 5 | 90% |
-| blur_040 | 6 | 4 | 100% |
-| blur_060 | 5 | 5 | 90% |
-| downsample_090 | 6 | 4 | 100% |
-| downsample_075 | 6 | 4 | 100% |
-| downsample_060 | 6 | 4 | 100% |
-
-Only one case was unstable:
-
-```text
-scene_0002
-clean=present
-blur_020=absent
-blur_060=absent
-```
-
-This is qualitatively different from the brightness failure.
-
-The instability is localized rather than global.
-
-Audit script:
-
-```text
-scripts/audit_perturbation_stability.py
-scripts/audit_uncertainty_prediction.py
-scripts/audit_risk_operating_point.py
-```
-
----
-
-### Phase 3: calibrated evidence gate
-
-Final calibrated views:
-
-```text
-original
-blur_020
-blur_040
-blur_060
-downsample_090
-downsample_075
-downsample_060
-```
-
-Condition:
-
-```text
-CONFLICT_EVIDENCE_UNCERTAINTY_CALIBRATED
-```
-
-Final gate distribution:
-
-```text
-5 hard present
-4 hard absent
-1 uncertain
-```
-
-Results:
-
-| Model | Hard present | Hard absent | Uncertain | Model-call rate | Accuracy |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| Gemma 3 4B | 5/10 | 4/10 | 1/10 | 60% | **100%** |
-| Qwen3 4B | 5/10 | 4/10 | 1/10 | 60% | **100%** |
-
-All labels:
-
-```text
-supported     100%
-contradicted  100%
-unknown       100%
-```
-
-Only 1/10 cases incurs uncertainty-specific escalation.
-
-The other five model calls are normal present-target reasoning.
-
-### Finding
-
-> **An interpretable uncertainty signal can be derived from extractor stability, provided the perturbation probes themselves are calibrated not to induce systematic extractor failure.**
-
-This moves DetectiveLab from:
-
-```text
-oracle protection
-```
-
-to:
-
-```text
-evidence-grounded abstention
-```
-
-without introducing a learned confidence model.
-
-Results:
-
-```text
-docs/results/v0_8_evidence_uncertainty.md
-```
-
----
-
-
-## v0.9 — Uncertainty Prediction
-
-Branch:
-
-```text
-v0.9-uncertainty-prediction
-```
-
-Research question:
-
-> **Does calibrated extractor instability predict actual extraction failure under controlled image degradation?**
-
-`v0.8` showed that a calibrated perturbation ensemble could identify localized clean-image instability. `v0.9` freezes that uncertainty rule and evaluates it prospectively under controlled degradation.
-
-No uncertainty probe is retuned on the `v0.9` degradation results.
-
-### Degradation families
-
-Four families are tested at five fixed severity levels each:
-
-```text
-blur
-downsample
-contrast
-occlusion
-```
-
-For every scene × severity, the harness records:
-
-- clean extractor presence
-- degraded extractor presence
-- whether extraction actually failed
-- calibrated uncertainty state
-- whether uncertainty fired
-- downstream verdict correctness
-- model-call count
-
-### Why event-level evaluation is required
-
-A pointwise classifier metric can penalize useful early warnings.
-
-Example:
-
-```text
-severity 1 → uncertainty warning
-severity 3 → extraction failure
-```
-
-Pointwise scoring treats the early warning as a false positive and the later failure as a false negative.
-
-For prospective monitoring, the more meaningful question is:
-
-> Did the first uncertainty warning occur before or at the first extraction failure?
-
-`v0.9` therefore reports both:
-
-1. pointwise detection metrics;
-2. event-level prospective warning metrics.
-
-### Blur
-
-50 records.
-
-```text
-Extraction failures: 4/50
-Uncertainty positives: 5/50
-
-Pointwise:
-  TP=1 FP=4 FN=3 TN=42
-  recall=25.0%
-  precision=20.0%
-
-Prospective event-level:
-  failing items=2
-  timely warnings=1
-  event recall=50.0%
-  event precision=33.3%
-
-Downstream accuracy=94.0%
-Model-call rate=54.0%
-```
-
-One clean-fragile case, `scene_0002`, warned before failure:
-
-```text
-uncertainty at blur 0.0
-failure at blur 0.8
-```
-
-But another failing case, `scene_0005`, failed at blur 1.6 without any warning.
-
-### Downsample
-
-50 records.
-
-```text
-Extraction failures: 4/50
-Uncertainty positives: 2/50
-
-Pointwise:
-  TP=0 FP=2 FN=4 TN=44
-  recall=0.0%
-  precision=0.0%
-
-Prospective event-level:
-  failing items=4
-  timely warnings=1
-  event recall=25.0%
-  event precision=100.0%
-
-Downstream accuracy=92.0%
-Model-call rate=52.0%
-```
-
-Three of four failing item trajectories receive no warning.
-
-### Contrast
-
-50 records.
-
-```text
-Extraction failures: 24/50
-Uncertainty positives: 1/50
-
-Pointwise:
-  TP=0 FP=1 FN=24 TN=25
-  recall=0.0%
-  precision=0.0%
-
-Prospective event-level:
-  failing items=6
-  timely warnings=1
-  event recall=16.7%
-  event precision=100.0%
-
-Downstream accuracy=52.0%
-Model-call rate=12.0%
-```
-
-Contrast is the strongest negative result in `v0.9`.
-
-The extractor fails frequently, but the fixed uncertainty signal almost never fires.
-
-### Occlusion
-
-50 records.
-
-```text
-Extraction failures: 3/50
-Uncertainty positives: 5/50
-
-Pointwise:
-  TP=0 FP=5 FN=3 TN=42
-  recall=0.0%
-  precision=0.0%
-
-Prospective event-level:
-  failing items=2
-  timely warnings=2
-  event recall=100.0%
-  event precision=100.0%
-
-Downstream accuracy=94.0%
-Model-call rate=54.0%
-```
-
-Occlusion is the strongest positive result.
-
-Both failing item trajectories receive warnings before failure.
-
-### Overall prospective result
-
-Across the four degradation families:
-
-```text
-failing item-family events = 14
-timely warnings            = 5
-missed failures            = 9
-event recall               = 35.7%
-event precision            = 71.4%
-```
-
-Overall pointwise detection:
-
-```text
-TP=1
-FP=12
-FN=34
-TN=153
-recall=2.9%
-precision=7.7%
-```
-
-The event-level metric is the more appropriate prospective measure, but the detector still misses most failures.
-
-### Finding
-
-> **Calibrated clean-image instability is not a reliable general predictor of extractor failure under distribution shift.**
-
-Its predictive value is degradation-specific:
-
-| Degradation | Event recall | Event precision |
-| --- | ---: | ---: |
-| blur | 50.0% | 33.3% |
-| downsample | 25.0% | 100.0% |
-| contrast | 16.7% | 100.0% |
-| occlusion | 100.0% | 100.0% |
-
-The strongest methodological lesson is:
-
-> **Uncertainty probes inherit assumptions about the failure modes they perturb.**
-
-The `v0.8` signal remains useful as a localized fragility indicator, but it should not be interpreted as a generic probability that extraction is correct.
-
-### Why the signal is not retuned here
-
-`v0.9` is a prospective validation milestone.
-
-Retuning the perturbation ensemble on these degradation outcomes would turn the evaluation set into a tuning set and weaken the result.
-
-The correct outcome is therefore to preserve the negative result.
-
-Audit:
-
-```text
-scripts/audit_uncertainty_prediction.py
-scripts/audit_risk_operating_point.py
-```
-
-Results:
-
-```text
-docs/results/v0_9_uncertainty_prediction.md
-```
-
----
-
-## v0.10 — Risk Operating Point
-
-Branch: `v0.10-risk-operating-point`
-
-## Research question
-
-> **Can multiple complementary, interpretable evidence-risk signals produce a useful failure-coverage versus escalation-cost operating point without learned routing?**
-
-`v0.9` established that the fixed `v0.8` perturbation-stability signal is not a reliable general predictor of extractor failure across degradation types.
-
-`v0.10` asks the final operational question:
-
-> If risk detection is broadened with complementary interpretable signals, does escalation actually improve the system?
-
-No learned router is introduced.
-
-## Signals
-
-The milestone evaluates three simple evidence-risk signals:
-
-```text
-perturbation instability
-low global contrast
-low local edge strength
-```
-
-The image-quality thresholds are calibrated from clean benchmark images only.
-
-No degraded extraction-failure labels are used to set the thresholds.
-
-Calibration:
-
-```text
-contrast floor = 33.3471
-edge floor     = 1.4261
-rule           = clean minimum × 0.90
-```
-
-## Policies
-
-Eight fixed policies are compared:
-
-```text
-NEVER_ESCALATE
-STABILITY_ONLY
-LOW_CONTRAST_ONLY
-LOW_EDGE_ONLY
-QUALITY_ANY
-ANY_SIGNAL
-TWO_PLUS
-ALWAYS_ESCALATE
-```
-
-The evaluation reuses the frozen `v0.9` degradation trajectories.
-
-Where `v0.9` originally took a deterministic zero-model-call path, `v0.10` obtains one counterfactual staged-model prediction and caches it. All policies are then compared against the same cached fallback outputs.
-
-## Test status
-
-```text
-125 passed
-```
-
-## Gemma operating-point results
-
-Model:
-
-```text
-gemma3:4b
-```
-
-| Policy | Failure recall | Failure precision | Incremental escalation | Model-call rate | Downstream accuracy |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| NEVER_ESCALATE | 0.0% | 0.0% | 0.0% | 43.0% | **83.0%** |
-| STABILITY_ONLY | 2.9% | 7.7% | 0.0% | 43.0% | **83.0%** |
-| LOW_CONTRAST_ONLY | 51.4% | 58.1% | 14.5% | 57.5% | 80.5% |
-| LOW_EDGE_ONLY | 45.7% | 44.4% | 14.0% | 57.0% | 80.5% |
-| QUALITY_ANY | 57.1% | 46.5% | 17.5% | 60.5% | 79.5% |
-| ANY_SIGNAL | **60.0%** | 38.2% | 17.5% | 60.5% | 79.5% |
-| TWO_PLUS | 40.0% | 58.3% | 11.0% | 54.0% | 81.5% |
-| ALWAYS_ESCALATE | **100.0%** | 17.5% | 57.0% | 100.0% | **59.0%** |
-
-## Pareto result
-
-The audit identifies only two accuracy-versus-model-call Pareto-efficient policies:
-
-```text
-NEVER_ESCALATE
-STABILITY_ONLY
-```
-
-Both operate at:
-
-```text
-model-call rate = 43.0%
-accuracy        = 83.0%
-```
-
-`STABILITY_ONLY` detects one additional failure but does not change the actual compute or accuracy operating point because the base gate already sends unstable cases to the reasoner.
-
-Every policy that increases model calls is dominated on the measured accuracy-versus-compute objective.
-
-## Main finding
-
-> **Better failure detection does not automatically produce better downstream performance when the escalation path is itself unreliable under degraded evidence.**
-
-The clearest example is `ANY_SIGNAL`.
-
-Failure recall improves:
-
-```text
-2.9% → 60.0%
-```
-
-but model-call rate also increases:
-
-```text
-43.0% → 60.5%
-```
-
-while downstream accuracy falls:
-
-```text
-83.0% → 79.5%
-```
-
-The `ALWAYS_ESCALATE` baseline makes the limitation explicit:
-
-```text
-failure recall = 100%
-model calls    = 100%
-accuracy       = 59%
-```
-
-Perfect failure coverage produces the worst downstream accuracy of all tested policies.
-
-## Interpretation
-
-The earlier architecture implicitly assumed:
+| `NEVER_ESCALATE` | 0.0% | 43.0% | **83.0%** |
+| `STABILITY_ONLY` | 2.9% | 43.0% | **83.0%** |
+| `TWO_PLUS` | 40.0% | 54.0% | 81.5% |
+| `ANY_SIGNAL` | 60.0% | 60.5% | 79.5% |
+| `ALWAYS_ESCALATE` | 100.0% | 100.0% | 59.0% |
+
+The key result is not that risk detection failed. It is that **better risk detection did not imply better outcomes**.
 
 ```text
 detect risk
@@ -1551,218 +144,27 @@ detect risk
 → recover
 ```
 
-`v0.10` shows that the second implication is not guaranteed.
+The last step cannot be assumed.
 
-A useful escalation policy requires both:
+## Setup
 
-```text
-1. the current path is risky
-2. the fallback path has positive expected value
-```
-
-Risk detection alone is therefore insufficient.
-
-The more appropriate target is not simply:
-
-```text
-failure recall
-```
-
-but something closer to:
-
-```text
-recoverable-risk recall
-```
-
-or:
-
-```text
-expected value of escalation
-```
-
-## Relationship to previous milestones
-
-The final experimental arc is:
-
-```text
-v0.1
-perception can masquerade as reasoning failure
-
-v0.2
-focused structure can outperform dense correct structure
-
-v0.3
-residual failure can be epistemic policy
-
-v0.4
-policy interventions can be model-dependent
-
-v0.5
-control works better from reliable representation than re-inference
-
-v0.6
-gate errors are directionally asymmetric
-
-v0.7
-abstention can rescue dangerous gate errors
-
-v0.8
-evidence-derived instability can trigger abstention
-
-v0.9
-instability is not a general failure predictor
-
-v0.10
-risk detection alone does not justify escalation
-```
-
-## Final project conclusion
-
-> **Reliable multimodal control requires not only detecting when the current evidence path is risky, but also knowing whether the fallback path is likely to recover rather than amplify that risk.**
-
-A compact operational version is:
-
-> **Uncertainty is useful only when escalation has positive expected value.**
-
-## Why the project stops here
-
-`v0.10` answers the operating-point question without requiring a learned router.
-
-The interpretable risk signals do increase failure coverage, but none produces a superior accuracy-compute operating point because the fallback reasoner is itself fragile under degraded evidence.
-
-A learned router would therefore not yet solve the identified systems problem.
-
-Before routing could be justified, the system would first need a fallback whose recovery probability is demonstrably higher on the cases being escalated.
-
-For this research scope, that is a natural stopping point.
-
-Audit:
-
-```text
-scripts/audit_risk_operating_point.py
-```
-
-Results:
-
-```text
-docs/results/v0_10_risk_operating_point.md
-```
-
-No `v0.11` milestone is planned.
-
-
----
-
-# Results at a Glance
-
-## Representation results
-
-| Milestone | Condition | Key result |
-| --- | --- | --- |
-| v0.1 | RAW | 53.3% overall |
-| v0.1 | ORACLE_STRUCTURED | 86.7% overall |
-| v0.2 | EXTRACTED_STRUCTURED | 70.0% overall |
-| v0.2 | EXTRACTED_FOCUSED | **86.7% overall** |
-
-Core lesson:
-
-> **Representation quality is not only about correctness; relevance and density matter.**
-
----
-
-## Conflict-control results
-
-| Milestone | Gemma | Qwen | Main lesson |
-| --- | ---: | ---: | --- |
-| staged conflict | 70% | 100% | native epistemic behavior differs |
-| global epistemic rule | 100% | 90% | policy intervention is model-dependent |
-| standalone LLM gate | 70% | 70% | gate can become a new bottleneck |
-| extractor gate | **100%** | **100%** | reuse reliable structured facts directly |
-| calibrated uncertainty gate | **100%** | **100%** | calibrated instability supports evidence-grounded abstention |
-| v0.9 prospective prediction | 35.7% event recall | — | descriptive instability does not generalize to all failure modes |
-| v0.10 risk operating point | 83.0% best accuracy at 43.0% calls | — | more failure coverage can reduce downstream accuracy |
-
----
-
-# Current Architecture
-
-The final evidence/control pipeline studied in this repository is:
-
-```text
-scene.png
-   ↓
-deterministic synthetic extractor
-   ↓
-focused structured evidence
-   ↓
-presence stability across calibrated perturbations
-   ↓
-┌───────────────────────────────────────┐
-│ stable absent                         │
-│ → deterministic unknown               │
-│ → zero language-model calls           │
-├───────────────────────────────────────┤
-│ stable present                        │
-│ → staged conflict reasoning           │
-├───────────────────────────────────────┤
-│ unstable / uncertain                  │
-│ → abstain from hard gate decision     │
-│ → staged conflict reasoning           │
-└───────────────────────────────────────┘
-```
-
-This architecture is intentionally not a learned router.
-
-`v0.9` shows that calibrated stability is a **localized fragility indicator**, not a universal correctness probability.
-
-`v0.10` further shows that broader risk detection is not sufficient: escalation must itself have positive expected value.
-
-The current evidence does not justify learned routing.
-
----
-
-# Setup
-
-The repository is designed to run locally on a Mac CPU.
-
-Example environment:
+Designed for local CPU execution on macOS with Ollama.
 
 ```bash
 /opt/homebrew/bin/python3.12 -m venv .venv
 source .venv/bin/activate
-
 python -m pip install --upgrade pip
 python -m pip install -e '.[dev]'
-```
-
-Run tests:
-
-```bash
 python -m pytest
 ```
 
-Current expected result:
+Expected test result:
 
 ```text
 125 passed
 ```
 
----
-
-# Local Models
-
-Experiments have been run through Ollama.
-
-Known local models include:
-
-```text
-gemma3:4b
-qwen3:4b-instruct-2507-q4_K_M
-qwen3:8b
-llama3.2:3b
-```
-
-The main controlled comparisons in the current research arc use:
+Main local models:
 
 ```text
 gemma3:4b
@@ -1778,13 +180,7 @@ think = false
 num_predict = 128
 ```
 
-The adapter uses Ollama's local generation API.
-
-No fine-tuning is required.
-
----
-
-# Running the Final v0.10 Experiment
+## Run the final experiment
 
 ```bash
 python -m detectivelab.cli.risk_operating_point \
@@ -1800,27 +196,31 @@ python -m detectivelab.cli.risk_operating_point \
   --output artifacts/evaluation/v0_10_risk_operating_point_gemma3_4b.json
 ```
 
-Audit the operating points:
+Audit:
 
 ```bash
 python scripts/audit_risk_operating_point.py \
   artifacts/evaluation/v0_10_risk_operating_point_gemma3_4b.json
 ```
 
-Expected headline result:
+## Research record
+
+Each milestone has a dedicated result document:
 
 ```text
-best accuracy = 83.0%
-model-call rate = 43.0%
-
-higher failure coverage does not improve the accuracy-compute frontier
+docs/results/v0_1_direct.md
+docs/results/v0_2_extracted_structure.md
+docs/results/v0_3_conflict_arbitration.md
+docs/results/v0_4_epistemic_robustness.md
+docs/results/v0_5_conditional_epistemic.md
+docs/results/v0_6_gate_corruption.md
+docs/results/v0_7_abstaining_gate.md
+docs/results/v0_8_evidence_uncertainty.md
+docs/results/v0_9_uncertainty_prediction.md
+docs/results/v0_10_risk_operating_point.md
 ```
 
----
-
-# Diagnostic Scripts
-
-The repository includes targeted audits used to explain failures rather than merely report aggregate accuracy.
+Important diagnostic scripts:
 
 ```text
 scripts/audit_spatial.py
@@ -1832,315 +232,31 @@ scripts/audit_uncertainty_prediction.py
 scripts/audit_risk_operating_point.py
 ```
 
-These are part of the experimental method.
+## What the evidence does not establish
 
-A surprising benchmark score should trigger an audit before a new architecture is added.
-
----
-
-# Research Evolution
-
-| Milestone | Research question | Intervention | Status |
-| --- | --- | --- | --- |
-| v0.0 | Can the initial benchmark test grounded conflict reasoning? | initial benchmark | INVALIDATED |
-| v0.0.1 | Can shortcut leakage be removed while freezing the task? | corrected benchmark | COMPLETE |
-| v0.1 | Is failure primarily perception or reasoning? | raw vs oracle structure | COMPLETE |
-| v0.2 | Can image-derived structure recover the oracle gap? | dense vs focused extractor output | COMPLETE |
-| v0.3 | What conflict failure remains after perception is controlled? | staged reasoning + explicit missing-evidence rule | COMPLETE |
-| v0.4 | Is the epistemic fix robust across wording, cases, and models? | robustness harnesses | COMPLETE |
-| v0.5 | Can policy be applied conditionally without collateral regressions? | LLM gate vs extractor gate | COMPLETE |
-| v0.6 | How brittle is representation-grounded control to gate errors? | directional corruption curves | COMPLETE |
-| v0.7 | Can abstention trade compute for recovery? | controlled three-way gate | COMPLETE |
-| v0.8 | Can uncertainty come from evidence rather than oracle protection? | calibrated extractor-stability signal | COMPLETE |
-| v0.9 | Does calibrated instability predict real extraction failure? | controlled degradation + prospective event audit | COMPLETE |
-| v0.10 | Can complementary interpretable risk signals improve the operating point? | multi-signal risk policies + counterfactual fallback evaluation | COMPLETE |
-| status | Is more architecture justified by the current evidence? | stop condition | RESEARCH COMPLETE |
-
-The project trajectory is:
-
-```text
-benchmark
-→ direct perception
-→ oracle structure
-→ extracted structure
-→ focused representation
-→ conflict arbitration
-→ epistemic robustness
-→ representation-grounded control
-→ gate corruption
-→ abstention
-→ evidence-derived uncertainty
-→ prospective uncertainty validation
-→ complementary risk signals
-→ escalation-value operating point
-→ research complete
-```
-
----
-
-# What the Evidence Supports So Far
-
-The completed benchmark study supports the following conclusions.
-
-### 1. Apparent reasoning failures can originate in perception
-
-Oracle structure substantially outperformed raw visual input.
-
-### 2. Correct structure can still be harmful when it is too dense
-
-Dense pairwise spatial structure reduced reasoning quality despite being correct.
-
-### 3. Focused image-derived structure can match oracle structure
-
-On the current benchmark, task-relevant extracted evidence recovered essentially the full oracle gap.
-
-### 4. Missing evidence requires explicit epistemic handling for some models
-
-Gemma repeatedly treated absence as contradiction until the missing-evidence policy was made explicit.
-
-### 5. Reasoning-policy interventions are model-dependent
-
-The same global policy that fixed Gemma introduced regressions in Qwen.
-
-### 6. A control gate can be less reliable than the reasoner it controls
-
-The isolated LLM existence gate created false-absence errors not present in full staged reasoning.
-
-### 7. Reusing reliable structured evidence can outperform re-inference
-
-The extractor-derived presence gate restored 100% canonical conflict accuracy on both models.
-
-### 8. Gate errors are directionally asymmetric
-
-False absence suppresses evidence and is effectively unrecoverable downstream.
-
-False presence can be recoverable.
-
-### 9. Abstention can convert catastrophic control errors into recoverable computation
-
-A three-way gate restored accuracy by escalating risky hard decisions.
-
-### 10. Uncertainty probes must themselves be calibrated
-
-Destructive perturbations can manufacture disagreement and create fake uncertainty.
-
-### 11. Calibrated extractor instability can support evidence-grounded abstention
-
-On the frozen benchmark, the final calibrated signal isolates one unstable case while preserving all stable absent and most stable present cases.
-
-
-### 12. Descriptive instability is not equivalent to general predictive uncertainty
-
-Under controlled degradation, the fixed `v0.8` signal achieves only 35.7% event-level failure recall overall and is strongly degradation-dependent.
-
-Occlusion is well covered; contrast degradation is mostly invisible to the current probe.
-
-
-### 13. Failure detection is not sufficient for useful escalation
-
-Complementary risk signals raise failure recall substantially, but every higher-compute policy reduces downstream accuracy on the current degradation set.
-
-The limiting factor is therefore not only whether risk can be detected, but whether the fallback can recover.
-
----
-
-# What the Evidence Does Not Yet Support
-
-DetectiveLab does **not** establish that:
+This project does **not** establish that:
 
 - the synthetic extractor transfers to natural images;
 - perturbation stability is a calibrated probability;
-- the current perturbation set transfers to another visual domain;
-- `scene_0002` is semantically ambiguous rather than near an extractor threshold;
-- confidence thresholds have been optimized;
-- the current perturbation-stability signal is a general failure probability;
+- the current uncertainty probes generalize to new visual domains;
 - learned routing is necessary;
-- escalation will improve accuracy merely because a risk detector fires;
-- a larger model would remove the observed architectural effects;
-- the current benchmark is large enough for broad generalization claims.
+- escalation improves accuracy simply because risk was detected;
+- a larger model would eliminate the observed architectural effects;
+- this small controlled benchmark supports broad generalization claims.
 
-The benchmark is intentionally small and controlled.
+## Reproducibility principles
 
-The project prioritizes causal interpretability over scale.
+- freeze completed benchmarks;
+- preserve negative results;
+- keep participant inputs separate from gold labels;
+- prefer deterministic experiments;
+- audit surprising results before adding complexity;
+- do not add learned routing without evidence.
 
----
+## Research status
 
-# Research Status: Complete
+`v0.10` is the final planned milestone for this research arc.
 
-`v0.10` is the final planned milestone.
+The project stops here because the final experiment shows that the key remaining problem is not merely **when to escalate**, but **whether escalation has positive expected value on the cases selected**.
 
-The final operating-point experiment shows that more aggressive risk detection does not improve the accuracy-compute frontier because the downstream fallback is itself fragile under degraded evidence.
-
-The project therefore stops before learned routing.
-
-The final systems principle is:
-
-> **Uncertainty is useful only when escalation has positive expected value.**
-
-Future work may revisit the problem with a demonstrably stronger fallback model, a new visual domain, or a separately held-out benchmark, but those are extensions rather than required milestones in the current research arc.
-
----
-
-# Reproducibility Rules
-
-DetectiveLab follows several repository-level rules.
-
-### Freeze completed benchmarks
-
-Do not rewrite `v0.0.1` to make a new experiment easier.
-
-### Preserve negative results
-
-Failed approaches remain documented when they reveal a real mechanism.
-
-### Keep participant evidence separate from gold labels
-
-Gold belongs in scoring artifacts, not participant-facing payloads.
-
-### Prefer deterministic experiments
-
-Use fixed seeds, deterministic synthetic generation, deterministic corruption subsets, and explicit model settings.
-
-### Audit before escalating complexity
-
-A surprising result should be decomposed before adding a new component.
-
-### Do not add learned routing without evidence
-
-Learned routing remains unsupported by the completed evidence and is not part of the final architecture.
-
-### Keep visuals faithful to the benchmark
-
-If a README figure is included, prefer a **real benchmark example from the repository** over decorative diagrams.
-For this project, a single grounded example image is more informative than multiple conceptual graphics.
-
-
----
-
-# Repository Layout
-
-Key paths:
-
-```text
-artifacts/
-  benchmark_v0_0_1/
-
-docs/
-  results/
-    v0_1_direct.md
-    v0_2_extracted_structure.md
-    v0_3_conflict_arbitration.md
-    v0_4_epistemic_robustness.md
-    v0_5_conditional_epistemic.md
-    v0_6_gate_corruption.md
-    v0_7_abstaining_gate.md
-    v0_8_evidence_uncertainty.md
-    v0_9_uncertainty_prediction.md
-    v0_10_risk_operating_point.md
-
-scripts/
-  audit_spatial.py
-  audit_conflict_staged.py
-  audit_epistemic_model_effect.py
-  audit_conditional_gate.py
-  audit_perturbation_stability.py
-  audit_uncertainty_prediction.py
-  audit_risk_operating_point.py
-
-src/detectivelab/
-  adapters/
-  cli/
-    uncertainty_prediction.py
-    risk_operating_point.py
-  evaluation/
-    uncertainty_prediction.py
-    risk_operating_point.py
-  extraction/
-
-tests/
-  test_uncertainty_prediction.py
-  test_risk_operating_point.py
-```
-
-Evaluation JSONL outputs are treated as experiment artifacts and are not required to be committed to Git.
-
----
-
-# Branch History
-
-Milestone branches:
-
-```text
-main
-v0.1-direct
-v0.2-extracted-structure
-v0.3-conflict-arbitration
-v0.4-epistemic-robustness
-v0.5-conditional-epistemic
-v0.6-gate-corruption
-v0.7-abstaining-gate
-v0.8-evidence-uncertainty
-v0.9-uncertainty-prediction
-v0.10-risk-operating-point
-```
-
-Selected milestone commits:
-
-```text
-main                        9eb3a9c
-v0.1-direct                 3adb657
-v0.2-extracted-structure    469ce47
-v0.3-conflict-arbitration   65c29af
-v0.4-epistemic-robustness   45c632c1
-v0.5-conditional-epistemic  35458c6
-v0.6-gate-corruption        943cbff
-v0.7-abstaining-gate        b2b82a4
-v0.8-evidence-uncertainty   745d9cd
-v0.9-uncertainty-prediction fedc692
-v0.10-risk-operating-point  a4bb9e7
-```
-
-Milestone tags:
-
-```text
-v0.0
-v0.1
-v0.2
-v0.3
-v0.4
-v0.5
-v0.6
-v0.7
-v0.8
-v0.9
-v0.10
-```
-
----
-
-# Core Takeaway
-
-DetectiveLab started as a comparison between raw and structured visual evidence.
-
-The experiments now support a broader systems view:
-
-> **Multimodal reliability depends not only on what evidence is available, but on how it is represented, how missing evidence is interpreted, where control decisions are made, which gate errors are allowed to suppress evidence, and whether uncertainty signals are themselves trustworthy, whether they predict failure under shift, and whether escalation can actually recover the cases they flag.**
-
-The final studied architecture remains deliberately simple:
-
-```text
-extract
-→ focus
-→ validate stability
-→ hard decision when stable
-→ abstain when unstable
-→ prospectively test failure coverage
-→ estimate whether escalation is worth the cost
-→ reason only when the fallback has value
-```
-
-That simplicity is intentional.
-
-The completed evidence does not require another milestone.
-
-The project stops at `v0.10`.
+> **Reliable multimodal control requires not only detecting when the current evidence path is risky, but also knowing whether the fallback path is likely to recover rather than amplify that risk.**
