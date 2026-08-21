@@ -10,10 +10,11 @@ from typing import Iterable
 from detectivelab.adapters.base import AdapterRequest, ModelAdapter
 from detectivelab.extraction import extract_scene_facts
 
+from .conditional import run_conditional_conflict, run_extractor_gated_conflict
 from .scoring import is_correct
 from .staged import build_conflict_epistemic_prompt, build_conflict_staged_prompt, parse_conflict_stages
 
-CASE_VARIATION_POLICIES = {"staged", "epistemic"}
+CASE_VARIATION_POLICIES = {"staged", "epistemic", "conditional", "extractor_gated"}
 
 _STATE_OPPOSITE = {
     "open": "closed",
@@ -156,7 +157,9 @@ def build_case_variation_prompt(
     payload = _variant_payload(base_payload, variant)
     if policy == "staged":
         return build_conflict_staged_prompt(image_path=image_path, payload=payload)
-    return build_conflict_epistemic_prompt(image_path=image_path, payload=payload)
+    if policy == "epistemic":
+        return build_conflict_epistemic_prompt(image_path=image_path, payload=payload)
+    return "CONDITIONAL_POLICY_EXECUTED_BY_RUNNER"
 
 
 def _iter_cases(benchmark_dir: Path) -> Iterable[tuple[Path, dict]]:
@@ -203,24 +206,37 @@ def run_case_variation_robustness(
                     skipped += 1
                     continue
 
-                prompt = build_case_variation_prompt(
-                    image_path=case_dir / "scene.png",
-                    base_payload=base_payload,
-                    policy=policy,
-                    variant=variant,
-                )
-                request = AdapterRequest(
-                    item_id=item_id,
-                    family="conflict",
-                    answer_type=payload["answer_type"],
-                    prompt=prompt,
-                    image_path=None,
-                )
-                start = time.perf_counter()
-                raw_output = adapter.predict(request)
-                latency_ms = (time.perf_counter() - start) * 1000.0
-                stages = parse_conflict_stages(raw_output)
-                prediction = stages.verdict if stages is not None else "invalid"
+                if policy in {"conditional", "extractor_gated"}:
+                    run_gate = run_conditional_conflict if policy == "conditional" else run_extractor_gated_conflict
+                    conditional = run_gate(
+                        adapter=adapter,
+                        item_id=item_id,
+                        image_path=case_dir / "scene.png",
+                        payload=payload,
+                    )
+                    prompt = conditional.prompt
+                    raw_output = conditional.raw_output
+                    latency_ms = conditional.latency_ms
+                    prediction = conditional.prediction
+                else:
+                    prompt = build_case_variation_prompt(
+                        image_path=case_dir / "scene.png",
+                        base_payload=base_payload,
+                        policy=policy,
+                        variant=variant,
+                    )
+                    request = AdapterRequest(
+                        item_id=item_id,
+                        family="conflict",
+                        answer_type=payload["answer_type"],
+                        prompt=prompt,
+                        image_path=None,
+                    )
+                    start = time.perf_counter()
+                    raw_output = adapter.predict(request)
+                    latency_ms = (time.perf_counter() - start) * 1000.0
+                    stages = parse_conflict_stages(raw_output)
+                    prediction = stages.verdict if stages is not None else "invalid"
 
                 record = {
                     "scene_id": base_payload["scene_id"],

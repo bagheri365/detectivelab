@@ -10,6 +10,7 @@ from typing import Iterable
 
 from detectivelab.adapters.base import AdapterRequest, ModelAdapter
 
+from .conditional import run_conditional_conflict, run_extractor_gated_conflict
 from .scoring import is_correct
 from .staged import build_conflict_epistemic_prompt, build_conflict_staged_prompt, parse_conflict_stages
 
@@ -43,7 +44,7 @@ PARAPHRASE_VARIANTS: tuple[ParaphraseVariant, ...] = (
     ),
 )
 
-ROBUSTNESS_POLICIES = {"staged", "epistemic"}
+ROBUSTNESS_POLICIES = {"staged", "epistemic", "conditional", "extractor_gated"}
 
 
 @dataclass(frozen=True)
@@ -109,11 +110,13 @@ def build_paraphrase_prompt(
             payload=payload,
             witness_override=witness_override,
         )
-    return build_conflict_epistemic_prompt(
-        image_path=image_path,
-        payload=payload,
-        witness_override=witness_override,
-    )
+    if policy == "epistemic":
+        return build_conflict_epistemic_prompt(
+            image_path=image_path,
+            payload=payload,
+            witness_override=witness_override,
+        )
+    return "CONDITIONAL_POLICY_EXECUTED_BY_RUNNER"
 
 
 def _iter_conflict_items(benchmark_dir: Path) -> Iterable[tuple[Path, dict, dict]]:
@@ -168,24 +171,39 @@ def run_paraphrase_robustness(
                     skipped += 1
                     continue
 
-                prompt = build_paraphrase_prompt(
-                    image_path=case_dir / "scene.png",
-                    payload=payload,
-                    policy=policy,
-                    variant=variant,
-                )
-                request = AdapterRequest(
-                    item_id=variant_item_id,
-                    family="conflict",
-                    answer_type=payload["answer_type"],
-                    prompt=prompt,
-                    image_path=None,
-                )
-                start = time.perf_counter()
-                raw_output = adapter.predict(request)
-                latency_ms = (time.perf_counter() - start) * 1000.0
-                stages = parse_conflict_stages(raw_output)
-                prediction = stages.verdict if stages is not None else "invalid"
+                witness_override = paraphrase_witness(payload, variant)
+                if policy in {"conditional", "extractor_gated"}:
+                    run_gate = run_conditional_conflict if policy == "conditional" else run_extractor_gated_conflict
+                    conditional = run_gate(
+                        adapter=adapter,
+                        item_id=variant_item_id,
+                        image_path=case_dir / "scene.png",
+                        payload=payload,
+                        witness_override=witness_override,
+                    )
+                    prompt = conditional.prompt
+                    raw_output = conditional.raw_output
+                    latency_ms = conditional.latency_ms
+                    prediction = conditional.prediction
+                else:
+                    prompt = build_paraphrase_prompt(
+                        image_path=case_dir / "scene.png",
+                        payload=payload,
+                        policy=policy,
+                        variant=variant,
+                    )
+                    request = AdapterRequest(
+                        item_id=variant_item_id,
+                        family="conflict",
+                        answer_type=payload["answer_type"],
+                        prompt=prompt,
+                        image_path=None,
+                    )
+                    start = time.perf_counter()
+                    raw_output = adapter.predict(request)
+                    latency_ms = (time.perf_counter() - start) * 1000.0
+                    stages = parse_conflict_stages(raw_output)
+                    prediction = stages.verdict if stages is not None else "invalid"
                 gold = gold_item["answer"].strip().lower()
 
                 record = {

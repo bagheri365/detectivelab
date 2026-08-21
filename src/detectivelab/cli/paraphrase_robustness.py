@@ -12,7 +12,7 @@ def _parse_args() -> argparse.Namespace:
         description="Run controlled conflict-testimony paraphrase robustness."
     )
     parser.add_argument("--benchmark", type=Path, required=True)
-    parser.add_argument("--policy", choices=["staged", "epistemic"], required=True)
+    parser.add_argument("--policy", choices=["staged", "epistemic", "conditional", "extractor_gated"], required=True)
     parser.add_argument("--model", required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--ollama-url", default="http://localhost:11434")
