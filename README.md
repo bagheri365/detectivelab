@@ -21,15 +21,15 @@ Before adding routing, learned confidence, fine-tuning, or larger architectures,
 
 ## Status
 
-- **Current branch:** `v0.9-uncertainty-prediction`
-- **Current milestone:** `v0.9` complete
-- **Current test suite:** `120 passed`
+- **Current branch:** `v0.10-risk-operating-point`
+- **Current milestone:** `v0.10` complete — research complete
+- **Current test suite:** `125 passed`
 - **Frozen benchmark:** `artifacts/benchmark_v0_0_1`
 - **Primary local models:**
   - `gemma3:4b`
   - `qwen3:4b-instruct-2507-q4_K_M`
 - **Current best canonical conflict result:** 100% on both models
-- **Current uncertainty-prediction result:** event-level failure recall 35.7% and precision 71.4% across four controlled degradation families
+- **Final operating-point result:** broader risk signals increase failure coverage, but every higher-compute policy is dominated on accuracy versus model-call cost
 
 The current architectural path is:
 
@@ -46,7 +46,7 @@ calibrated evidence-stability gate
 
 The strongest current finding is:
 
-> **Calibrated extractor instability is a useful localized fragility signal, but it is not a reliable general predictor of extraction failure under distribution shift.**
+> **Uncertainty is useful only when escalation has positive expected value.**
 
 ---
 
@@ -917,6 +917,7 @@ Branch:
 ```text
 v0.8-evidence-uncertainty
 v0.9-uncertainty-prediction
+v0.10-risk-operating-point
 ```
 
 Research question:
@@ -1031,6 +1032,7 @@ Audit script:
 ```text
 scripts/audit_perturbation_stability.py
 scripts/audit_uncertainty_prediction.py
+scripts/audit_risk_operating_point.py
 ```
 
 ---
@@ -1115,6 +1117,7 @@ Branch:
 
 ```text
 v0.9-uncertainty-prediction
+v0.10-risk-operating-point
 ```
 
 Research question:
@@ -1335,6 +1338,7 @@ Audit:
 
 ```text
 scripts/audit_uncertainty_prediction.py
+scripts/audit_risk_operating_point.py
 ```
 
 Results:
@@ -1342,6 +1346,242 @@ Results:
 ```text
 docs/results/v0_9_uncertainty_prediction.md
 ```
+
+---
+
+## v0.10 — Risk Operating Point
+
+Branch: `v0.10-risk-operating-point`
+
+## Research question
+
+> **Can multiple complementary, interpretable evidence-risk signals produce a useful failure-coverage versus escalation-cost operating point without learned routing?**
+
+`v0.9` established that the fixed `v0.8` perturbation-stability signal is not a reliable general predictor of extractor failure across degradation types.
+
+`v0.10` asks the final operational question:
+
+> If risk detection is broadened with complementary interpretable signals, does escalation actually improve the system?
+
+No learned router is introduced.
+
+## Signals
+
+The milestone evaluates three simple evidence-risk signals:
+
+```text
+perturbation instability
+low global contrast
+low local edge strength
+```
+
+The image-quality thresholds are calibrated from clean benchmark images only.
+
+No degraded extraction-failure labels are used to set the thresholds.
+
+Calibration:
+
+```text
+contrast floor = 33.3471
+edge floor     = 1.4261
+rule           = clean minimum × 0.90
+```
+
+## Policies
+
+Eight fixed policies are compared:
+
+```text
+NEVER_ESCALATE
+STABILITY_ONLY
+LOW_CONTRAST_ONLY
+LOW_EDGE_ONLY
+QUALITY_ANY
+ANY_SIGNAL
+TWO_PLUS
+ALWAYS_ESCALATE
+```
+
+The evaluation reuses the frozen `v0.9` degradation trajectories.
+
+Where `v0.9` originally took a deterministic zero-model-call path, `v0.10` obtains one counterfactual staged-model prediction and caches it. All policies are then compared against the same cached fallback outputs.
+
+## Test status
+
+```text
+125 passed
+```
+
+## Gemma operating-point results
+
+Model:
+
+```text
+gemma3:4b
+```
+
+| Policy | Failure recall | Failure precision | Incremental escalation | Model-call rate | Downstream accuracy |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| NEVER_ESCALATE | 0.0% | 0.0% | 0.0% | 43.0% | **83.0%** |
+| STABILITY_ONLY | 2.9% | 7.7% | 0.0% | 43.0% | **83.0%** |
+| LOW_CONTRAST_ONLY | 51.4% | 58.1% | 14.5% | 57.5% | 80.5% |
+| LOW_EDGE_ONLY | 45.7% | 44.4% | 14.0% | 57.0% | 80.5% |
+| QUALITY_ANY | 57.1% | 46.5% | 17.5% | 60.5% | 79.5% |
+| ANY_SIGNAL | **60.0%** | 38.2% | 17.5% | 60.5% | 79.5% |
+| TWO_PLUS | 40.0% | 58.3% | 11.0% | 54.0% | 81.5% |
+| ALWAYS_ESCALATE | **100.0%** | 17.5% | 57.0% | 100.0% | **59.0%** |
+
+## Pareto result
+
+The audit identifies only two accuracy-versus-model-call Pareto-efficient policies:
+
+```text
+NEVER_ESCALATE
+STABILITY_ONLY
+```
+
+Both operate at:
+
+```text
+model-call rate = 43.0%
+accuracy        = 83.0%
+```
+
+`STABILITY_ONLY` detects one additional failure but does not change the actual compute or accuracy operating point because the base gate already sends unstable cases to the reasoner.
+
+Every policy that increases model calls is dominated on the current accuracy-versus-compute objective.
+
+## Main finding
+
+> **Better failure detection does not automatically produce better downstream performance when the escalation path is itself unreliable under degraded evidence.**
+
+The clearest example is `ANY_SIGNAL`.
+
+Failure recall improves:
+
+```text
+2.9% → 60.0%
+```
+
+but model-call rate also increases:
+
+```text
+43.0% → 60.5%
+```
+
+while downstream accuracy falls:
+
+```text
+83.0% → 79.5%
+```
+
+The `ALWAYS_ESCALATE` baseline makes the limitation explicit:
+
+```text
+failure recall = 100%
+model calls    = 100%
+accuracy       = 59%
+```
+
+Perfect failure coverage produces the worst downstream accuracy of all tested policies.
+
+## Interpretation
+
+The earlier architecture implicitly assumed:
+
+```text
+detect risk
+→ escalate
+→ recover
+```
+
+`v0.10` shows that the second implication is not guaranteed.
+
+A useful escalation policy requires both:
+
+```text
+1. the current path is risky
+2. the fallback path has positive expected value
+```
+
+Risk detection alone is therefore insufficient.
+
+The more appropriate target is not simply:
+
+```text
+failure recall
+```
+
+but something closer to:
+
+```text
+recoverable-risk recall
+```
+
+or:
+
+```text
+expected value of escalation
+```
+
+## Relationship to previous milestones
+
+The final experimental arc is:
+
+```text
+v0.1
+perception can masquerade as reasoning failure
+
+v0.2
+focused structure can outperform dense correct structure
+
+v0.3
+residual failure can be epistemic policy
+
+v0.4
+policy interventions can be model-dependent
+
+v0.5
+control works better from reliable representation than re-inference
+
+v0.6
+gate errors are directionally asymmetric
+
+v0.7
+abstention can rescue dangerous gate errors
+
+v0.8
+evidence-derived instability can trigger abstention
+
+v0.9
+instability is not a general failure predictor
+
+v0.10
+risk detection alone does not justify escalation
+```
+
+## Final project conclusion
+
+> **Reliable multimodal control requires not only detecting when the current evidence path is risky, but also knowing whether the fallback path is likely to recover rather than amplify that risk.**
+
+A compact operational version is:
+
+> **Uncertainty is useful only when escalation has positive expected value.**
+
+## Why the project stops here
+
+`v0.10` answers the operating-point question without requiring a learned router.
+
+The interpretable risk signals do increase failure coverage, but none produces a superior accuracy-compute operating point because the fallback reasoner is itself fragile under degraded evidence.
+
+A learned router would therefore not yet solve the identified systems problem.
+
+Before routing could be justified, the system would first need a fallback whose recovery probability is demonstrably higher on the cases being escalated.
+
+For the current research scope, that is a natural stopping point.
+
+No `v0.11` milestone is planned.
+
 
 ---
 
@@ -1372,6 +1612,7 @@ Core lesson:
 | extractor gate | **100%** | **100%** | reuse reliable structured facts directly |
 | calibrated uncertainty gate | **100%** | **100%** | calibrated instability supports evidence-grounded abstention |
 | v0.9 prospective prediction | 35.7% event recall | — | descriptive instability does not generalize to all failure modes |
+| v0.10 risk operating point | 83.0% best accuracy at 43.0% calls | — | more failure coverage can reduce downstream accuracy |
 
 ---
 
@@ -1404,9 +1645,11 @@ presence stability across calibrated perturbations
 
 This architecture is intentionally not a learned router.
 
-`v0.9` also shows that the current calibrated stability signal should be treated as a **localized fragility indicator**, not as a universal correctness probability.
+`v0.9` shows that calibrated stability is a **localized fragility indicator**, not a universal correctness probability.
 
-The current evidence does not justify learned routing yet.
+`v0.10` further shows that broader risk detection is not sufficient: escalation must itself have positive expected value.
+
+The current evidence does not justify learned routing.
 
 ---
 
@@ -1433,7 +1676,7 @@ python -m pytest
 Current expected result:
 
 ```text
-120 passed
+125 passed
 ```
 
 ---
@@ -1473,38 +1716,37 @@ No fine-tuning is required.
 
 ---
 
-# Running the Current v0.9 Experiment
-
-Example blur sweep:
+# Running the Final v0.10 Experiment
 
 ```bash
-python -m detectivelab.cli.uncertainty_prediction \
+python -m detectivelab.cli.risk_operating_point \
   --benchmark artifacts/benchmark_v0_0_1 \
-  --degradation blur \
+  --v09 \
+    artifacts/evaluation/v0_9_uncertainty_blur_gemma3_4b.jsonl \
+    artifacts/evaluation/v0_9_uncertainty_downsample_gemma3_4b.jsonl \
+    artifacts/evaluation/v0_9_uncertainty_contrast_gemma3_4b.jsonl \
+    artifacts/evaluation/v0_9_uncertainty_occlusion_gemma3_4b.jsonl \
   --model gemma3:4b \
   --num-predict 128 \
-  --output artifacts/evaluation/v0_9_uncertainty_blur_gemma3_4b.jsonl
+  --cache artifacts/evaluation/v0_10_counterfactual_staged_gemma3_4b.jsonl \
+  --output artifacts/evaluation/v0_10_risk_operating_point_gemma3_4b.json
 ```
 
-Repeat with:
-
-```text
-downsample
-contrast
-occlusion
-```
-
-Run the combined prospective audit:
+Audit the operating points:
 
 ```bash
-python scripts/audit_uncertainty_prediction.py \
-  artifacts/evaluation/v0_9_uncertainty_blur_gemma3_4b.jsonl \
-  artifacts/evaluation/v0_9_uncertainty_downsample_gemma3_4b.jsonl \
-  artifacts/evaluation/v0_9_uncertainty_contrast_gemma3_4b.jsonl \
-  artifacts/evaluation/v0_9_uncertainty_occlusion_gemma3_4b.jsonl
+python scripts/audit_risk_operating_point.py \
+  artifacts/evaluation/v0_10_risk_operating_point_gemma3_4b.json
 ```
 
-The current fixed `v0.8` uncertainty rule is intentionally not retuned during these runs.
+Expected headline result:
+
+```text
+best accuracy = 83.0%
+model-call rate = 43.0%
+
+higher failure coverage does not improve the accuracy-compute frontier
+```
 
 ---
 
@@ -1519,6 +1761,7 @@ scripts/audit_epistemic_model_effect.py
 scripts/audit_conditional_gate.py
 scripts/audit_perturbation_stability.py
 scripts/audit_uncertainty_prediction.py
+scripts/audit_risk_operating_point.py
 ```
 
 These are part of the experimental method.
@@ -1542,7 +1785,8 @@ A surprising benchmark score should trigger an audit before a new architecture i
 | v0.7 | Can abstention trade compute for recovery? | controlled three-way gate | COMPLETE |
 | v0.8 | Can uncertainty come from evidence rather than oracle protection? | calibrated extractor-stability signal | COMPLETE |
 | v0.9 | Does calibrated instability predict real extraction failure? | controlled degradation + prospective event audit | COMPLETE |
-| next | Can complementary interpretable risk signals improve failure coverage at acceptable escalation cost? | multi-signal operating-point study | NEXT |
+| v0.10 | Can complementary interpretable risk signals improve the operating point? | multi-signal risk policies + counterfactual fallback evaluation | COMPLETE |
+| status | Is more architecture justified by the current evidence? | stop condition | RESEARCH COMPLETE |
 
 The project trajectory is:
 
@@ -1559,7 +1803,9 @@ benchmark
 → abstention
 → evidence-derived uncertainty
 → prospective uncertainty validation
-→ complementary risk signals / operating point
+→ complementary risk signals
+→ escalation-value operating point
+→ research complete
 ```
 
 ---
@@ -1621,6 +1867,13 @@ Under controlled degradation, the fixed `v0.8` signal achieves only 35.7% event-
 
 Occlusion is well covered; contrast degradation is mostly invisible to the current probe.
 
+
+### 13. Failure detection is not sufficient for useful escalation
+
+Complementary risk signals raise failure recall substantially, but every higher-compute policy reduces downstream accuracy on the current degradation set.
+
+The limiting factor is therefore not only whether risk can be detected, but whether the fallback can recover.
+
 ---
 
 # What the Evidence Does Not Yet Support
@@ -1634,6 +1887,7 @@ DetectiveLab does **not** currently establish that:
 - confidence thresholds have been optimized;
 - the current perturbation-stability signal is a general failure probability;
 - learned routing is necessary;
+- escalation will improve accuracy merely because a risk detector fires;
 - a larger model would remove the observed architectural effects;
 - the current benchmark is large enough for broad generalization claims.
 
@@ -1643,44 +1897,19 @@ The project prioritizes causal interpretability over scale.
 
 ---
 
-# Next Milestone
+# Research Status: Complete
 
-The likely final research milestone is:
+`v0.10` is the final planned milestone.
 
-> **Can multiple complementary, interpretable evidence-risk signals produce a useful failure-coverage versus escalation-cost operating point without learned routing?**
+The final operating-point experiment shows that more aggressive risk detection does not improve the accuracy-compute frontier because the downstream fallback is itself fragile under degraded evidence.
 
-`v0.9` shows that one perturbation-stability signal is too narrow.
+The project therefore stops before learned routing.
 
-The next experiment should compare a small set of interpretable signals, for example:
+The final systems principle is:
 
-```text
-perturbation instability
-extractor match margin
-competing candidate evidence
-threshold proximity
-simple image-quality indicators
-```
+> **Uncertainty is useful only when escalation has positive expected value.**
 
-The goal is not to maximize accuracy by accumulating arbitrary detectors.
-
-The goal is to measure:
-
-```text
-failure recall
-failure precision
-false-negative rate
-abstention / escalation rate
-model-call rate
-downstream accuracy
-```
-
-The central operating question is:
-
-> **How much failure coverage can be gained for how much escalation cost?**
-
-This should remain deterministic and interpretable.
-
-Only if those simple signals reach a clear limit should a learned confidence model or learned router be considered.
+Future work may revisit the problem with a demonstrably stronger fallback model, a new visual domain, or a separately held-out benchmark, but those are extensions rather than required milestones in the current research arc.
 
 ---
 
@@ -1733,6 +1962,7 @@ docs/
     v0_7_abstaining_gate.md
     v0_8_evidence_uncertainty.md
     v0_9_uncertainty_prediction.md
+    v0_10_risk_operating_point.md
 
 scripts/
   audit_spatial.py
@@ -1741,6 +1971,7 @@ scripts/
   audit_conditional_gate.py
   audit_perturbation_stability.py
   audit_uncertainty_prediction.py
+  audit_risk_operating_point.py
 
 src/detectivelab/
   adapters/
@@ -1770,6 +2001,7 @@ v0.6-gate-corruption
 v0.7-abstaining-gate
 v0.8-evidence-uncertainty
 v0.9-uncertainty-prediction
+v0.10-risk-operating-point
 ```
 
 Selected milestone commits:
@@ -1793,7 +2025,7 @@ DetectiveLab started as a comparison between raw and structured visual evidence.
 
 The experiments now support a broader systems view:
 
-> **Multimodal reliability depends not only on what evidence is available, but on how it is represented, how missing evidence is interpreted, where control decisions are made, which gate errors are allowed to suppress evidence, and whether uncertainty signals are themselves trustworthy, and whether those signals actually predict failure under shift.**
+> **Multimodal reliability depends not only on what evidence is available, but on how it is represented, how missing evidence is interpreted, where control decisions are made, which gate errors are allowed to suppress evidence, and whether uncertainty signals are themselves trustworthy, whether they predict failure under shift, and whether escalation can actually recover the cases they flag.**
 
 The current architecture remains deliberately simple:
 
@@ -1804,9 +2036,12 @@ extract
 → hard decision when stable
 → abstain when unstable
 → prospectively test failure coverage
-→ reason only when needed
+→ estimate whether escalation is worth the cost
+→ reason only when the fallback has value
 ```
 
 That simplicity is intentional.
 
-The next component should be added only when the current evidence says it is necessary.
+The current evidence does not require another milestone.
+
+The project stops at `v0.10`.
