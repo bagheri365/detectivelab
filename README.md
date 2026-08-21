@@ -7,13 +7,13 @@ Evidence before complexity is the project rule: freeze the benchmark, add one ca
 ## At a Glance
 
 - **Research question:** when multimodal evidence conflicts, should an AI reason from raw perception, structured observations, or both?
-- **Current milestone:** `v0.3-conflict-arbitration` is **COMPLETE**.
+- **Current milestone:** `v0.4-epistemic-robustness` is **COMPLETE**.
 - **Current benchmark:** `v0.0.1`, with 10 deterministic scenes, 30 total items, and three case families: spatial, state, and conflict.
-- **Best current result:** `CONFLICT_EPISTEMIC` reaches **100% conflict accuracy** on the current 10-item conflict slice; `EXTRACTED_FOCUSED` still matches `ORACLE_STRUCTURED` at **86.7% overall** on the full 30-item benchmark.
+- **Best current result:** the explicit epistemic policy reaches **100%** on Gemma across canonical conflict, paraphrase robustness, and controlled case variation; however, Qwen shows model-specific regressions under the same intervention.
 - **Key finding:** task-relevant image-derived structure can match oracle performance, while dense correct structure can materially degrade reasoning.
-- **Key v0.3 finding:** the residual conflict errors came from an epistemic policy mistake—treating missing physical evidence as contradiction rather than uncertainty.
+- **Key v0.4 finding:** the missing-evidence rule is highly effective for Gemma but not universally beneficial; on Qwen it improves `unknown` handling while sometimes introducing contradiction-to-support errors.
 - **Compute constraint:** the reference benchmark and evaluation workflow must remain runnable on a consumer Mac CPU without required model training.
-- **Next experiment:** test whether the explicit epistemic rule survives controlled variation before adding routing, hybrid evidence, or other architecture.
+- **Next experiment:** test whether the epistemic rule can be applied conditionally only after `EXISTENCE: absent`, preserving its benefit while avoiding collateral regressions on present-target cases.
 - **Project charter:** see [`DETECTIVELAB_PROJECT.md`](./DETECTIVELAB_PROJECT.md).
 
 ## Why This Project Exists
@@ -82,6 +82,79 @@ if EXISTENCE = absent:
 ```
 
 —removed the remaining conflict errors on the current 10-item slice.
+
+
+## v0.4 Robustness Findings
+
+`v0.4-epistemic-robustness` tests the `v0.3` missing-evidence rule across three axes:
+
+1. testimony paraphrases
+2. controlled case variation
+3. model variation
+
+The same two policies are compared throughout:
+
+- `CONFLICT_STAGED`
+- `CONFLICT_EPISTEMIC`
+
+### Gemma 3 4B
+
+Gemma remains strongly sensitive to missing-evidence cases under the staged policy, but the explicit epistemic rule is robust across wording and case variation.
+
+| Slice | Staged | Epistemic |
+| --- | ---: | ---: |
+| canonical conflict | 70.0% | **100.0%** |
+| paraphrase robustness | 66.7% | **100.0%** |
+| case variation | 66.7% | **100.0%** |
+
+The label-level pattern is especially clear:
+
+- paraphrases: `unknown` improves from 16.7% to 100%
+- case variation: `unknown` improves from 0% to 100%
+- supported and contradicted cases remain at 100% under the epistemic policy
+
+For Gemma, the intervention is therefore stable across the tested surface-form and case changes.
+
+### Qwen3 4B Instruct
+
+The second-model check reveals an important boundary condition.
+
+| Slice | Staged | Epistemic |
+| --- | ---: | ---: |
+| canonical conflict | **100.0%** | 90.0% |
+| paraphrase robustness | 86.7% | **93.3%** |
+| case variation | **100.0%** | 93.3% |
+
+On Qwen, the epistemic rule consistently protects `unknown` cases, but it can hurt `contradicted` cases:
+
+- paraphrases: `unknown` rises from 75.0% to 100%, while `contradicted` falls from 88.9% to 77.8%
+- case variation: `unknown` stays at 100%, while `contradicted` falls from 100% to 80%
+
+A direct audit confirms that these regressions are semantic rather than parser artifacts. The repeated failure changes:
+
+```text
+EXISTENCE: present
+PHYSICAL_STATE: open
+AGREEMENT: contradicts
+VERDICT: contradicted
+```
+
+into:
+
+```text
+EXISTENCE: present
+PHYSICAL_STATE: open
+AGREEMENT: supports
+VERDICT: supported
+```
+
+under the epistemic prompt.
+
+The resulting conclusion is:
+
+> **The epistemic intervention is failure-mode-specific rather than universally beneficial. A rule that fixes one model can over-constrain another model that does not share the same native error profile.**
+
+See [`docs/results/v0_4_epistemic_robustness.md`](./docs/results/v0_4_epistemic_robustness.md).
 
 ### State
 
@@ -206,6 +279,7 @@ DetectiveLab currently supports five evaluation conditions:
 | `EXTRACTED_FOCUSED` | task-relevant subset of image-derived symbolic facts |
 | `CONFLICT_STAGED` | focused conflict evidence + explicit intermediate decisions |
 | `CONFLICT_EPISTEMIC` | staged conflict reasoning + explicit missing-evidence policy |
+| robustness harnesses | paraphrase, case-variation, and cross-model checks over staged vs epistemic policies |
 
 `ORACLE_STRUCTURED` is a diagnostic upper bound, not a deployable perception system.
 
@@ -215,7 +289,7 @@ The focused formatter may use participant-facing task text to select relevant ex
 
 ## Research Evolution
 
-> benchmark -> direct perception -> oracle structure -> extracted structure -> focused representation -> conflict arbitration -> robustness / generalization -> hybrid / routing only if justified
+> benchmark -> direct perception -> oracle structure -> extracted structure -> focused representation -> conflict arbitration -> epistemic robustness -> conditional policy control -> hybrid / routing only if justified
 >
 > evidence before complexity
 
@@ -226,7 +300,8 @@ The focused formatter may use participant-facing task text to select relevant ex
 | `v0.1-direct` | How much can the model solve from priors versus raw visual evidence? | QUESTION and RAW evaluation harness; oracle diagnostic added | **COMPLETE** |
 | `v0.2-extracted-structure` | Can explicit image-derived structure recover the oracle gap? | Dense and focused image-only structured evidence | **COMPLETE** |
 | `v0.3-conflict-arbitration` | Why does conflict remain below ceiling after perception is controlled? | Staged reasoning + explicit epistemic policy | **COMPLETE** |
-| next | Does the epistemic policy survive controlled variation? | Paraphrase / case variation / second-model robustness checks | **NEXT** |
+| `v0.4-epistemic-robustness` | Does the epistemic policy survive wording, case, and model variation? | Paraphrase, case-variation, and second-model robustness checks | **COMPLETE** |
+| next | Can the epistemic rule be applied only when absence is detected? | Conditional policy application after the existence stage | **NEXT** |
 | later | Does retaining both pixels and structure improve robustness? | RAW + STRUCTURED hybrid path | Conditional |
 | later | When does structured evidence become brittle? | Controlled evidence corruption | Conditional |
 | later | Do different case types justify different evidence paths? | Routing | Conditional |
@@ -249,6 +324,9 @@ The focused formatter may use participant-facing task text to select relevant ex
 - staged conflict reasoning diagnostic
 - semantic stage audit with alias/suffix normalization
 - explicit epistemic missing-evidence rule
+- deterministic paraphrase robustness harness
+- image-only controlled case-variation harness
+- cross-model staged-vs-epistemic audit
 - automated leakage and hidden-state access tests
 - manual and blind visual audits before freeze
 - explicit benchmark-version freeze rule
@@ -288,10 +366,10 @@ After the virtual environment has been created once, future sessions only need:
 source .venv/bin/activate
 ```
 
-The current `v0.3-conflict-arbitration` branch should report:
+The current `v0.4-epistemic-robustness` branch should report:
 
 ```text
-66 passed
+75 passed
 ```
 
 ## Reproducing the Benchmark Checks
@@ -367,6 +445,36 @@ EXTRACTED_FOCUSED:
 python -m detectivelab.cli.evaluate   --benchmark artifacts/benchmark_v0_0_1   --condition EXTRACTED_FOCUSED   --adapter ollama   --model gemma3:4b   --output artifacts/evaluation/v0_2_extracted_focused_gemma3_4b.jsonl
 ```
 
+Paraphrase robustness:
+
+```bash
+python -m detectivelab.cli.paraphrase_robustness \
+  --benchmark artifacts/benchmark_v0_0_1 \
+  --policy epistemic \
+  --model gemma3:4b \
+  --num-predict 128 \
+  --output artifacts/evaluation/v0_4_paraphrase_epistemic_gemma3_4b.jsonl
+```
+
+Case-variation robustness:
+
+```bash
+python -m detectivelab.cli.case_robustness \
+  --benchmark artifacts/benchmark_v0_0_1 \
+  --policy epistemic \
+  --model gemma3:4b \
+  --num-predict 128 \
+  --output artifacts/evaluation/v0_4_case_variation_epistemic_gemma3_4b.jsonl
+```
+
+The same robustness commands can be rerun with:
+
+```text
+qwen3:4b-instruct-2507-q4_K_M
+```
+
+to reproduce the second-model comparison.
+
 Current deterministic defaults:
 
 - temperature: `0.0`
@@ -397,6 +505,18 @@ Spatial dense-vs-focused audit:
 python scripts/audit_spatial.py
 ```
 
+Cross-model policy-effect audit:
+
+```bash
+python scripts/audit_epistemic_model_effect.py \
+  --canonical-staged artifacts/evaluation/v0_4_conflict_staged_qwen3_4b.jsonl \
+  --canonical-epistemic artifacts/evaluation/v0_4_conflict_epistemic_qwen3_4b.jsonl \
+  --paraphrase-staged artifacts/evaluation/v0_4_paraphrase_staged_qwen3_4b.jsonl \
+  --paraphrase-epistemic artifacts/evaluation/v0_4_paraphrase_epistemic_qwen3_4b.jsonl \
+  --case-staged artifacts/evaluation/v0_4_case_variation_staged_qwen3_4b.jsonl \
+  --case-epistemic artifacts/evaluation/v0_4_case_variation_epistemic_qwen3_4b.jsonl
+```
+
 These scripts exist to diagnose measured failures. They are not separate benchmark conditions.
 
 ## Limitations
@@ -410,7 +530,8 @@ These scripts exist to diagnose measured failures. They are not separate benchma
 - The benchmark does not currently cover OCR, natural photographs, video, audio, tool use, or open-ended generation.
 - `ORACLE_STRUCTURED` is an upper-bound diagnostic and should not be interpreted as a deployable architecture.
 - `EXTRACTED_FOCUSED` uses task text to select relevant extracted facts; this is deliberate and should be distinguished from blind scene summarization.
-- `CONFLICT_EPISTEMIC` encodes the benchmark's missing-evidence policy explicitly; its 100% result is a controlled mechanism result, not evidence of broad uncertainty calibration.
+- `CONFLICT_EPISTEMIC` encodes the benchmark's missing-evidence policy explicitly; its 100% Gemma result is a controlled mechanism result, not evidence of broad uncertainty calibration.
+- Cross-model results show that the same explicit rule can introduce regressions on a model with a different native error profile.
 
 ## What the Current Evidence Suggests
 
@@ -423,7 +544,8 @@ The project currently supports several methodological lessons:
 - dense correct structure can still hurt reasoning
 - task-relevant structure can recover the full measured oracle gap on the current slice
 - perception can be fully controlled while evidence arbitration remains difficult
-- missing evidence and contradictory evidence are distinct epistemic states, and models may need that distinction made explicit
+- missing evidence and contradictory evidence are distinct epistemic states, and some models may need that distinction made explicit
+- reasoning interventions can be model-specific: a policy that fixes one model can degrade another
 - model complexity should only be added after the previous experiment identifies a measured bottleneck
 
 In short:
@@ -432,22 +554,32 @@ In short:
 
 ## Next Milestone
 
-### Robustness of the epistemic policy
+### Conditional epistemic policy application
 
-`v0.3-conflict-arbitration` is complete.
+`v0.4-epistemic-robustness` is complete.
 
 The next research question is:
 
-> Does the explicit distinction between missing evidence and contradictory evidence survive controlled variation?
+> Can the missing-evidence rule be applied only after the system has already determined that the target is absent?
 
-The next experiments should remain small and mechanism-focused. Good candidates are:
+This is motivated directly by the cross-model result.
 
-1. paraphrase witness testimony while preserving semantics
-2. vary object/state combinations and unknown cases
-3. increase the number of conflict examples without changing the reasoning rule
-4. repeat the conflict comparison with one additional small local model
+The current global epistemic prompt helps Gemma substantially, but on Qwen it can alter present-target contradiction judgments that the rule was never intended to govern.
 
-No routing, hybrid RAW+STRUCTURED path, fine-tuning, or larger architecture should be added until the discovered epistemic mechanism proves stable enough to justify further complexity.
+The next experiment should therefore keep the staged decomposition but apply the uncertainty rule only when:
+
+```text
+EXISTENCE = absent
+```
+
+The goal is to test whether a deterministic stage gate can:
+
+1. preserve the unknown-case benefit
+2. avoid changing present-target supported/contradicted reasoning
+3. reduce the Qwen contradiction-to-support regression
+4. remain simple enough to justify before any routing or learned control
+
+No learned router, hybrid RAW+STRUCTURED path, fine-tuning, or larger orchestration should be added yet.
 
 ## Freeze Rule
 
